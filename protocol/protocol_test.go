@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"ships3d/client3ds/flight"
+	"github.com/jonbul/ships3D-3ds/flight"
 )
 
 func TestAWelcomeIsRead(t *testing.T) {

@@ -8,9 +8,9 @@ import (
 	"github.com/akrck02/go-renderer/graphics"
 	"github.com/akrck02/go-renderer/scene"
 
-	"ships3d/client3ds/flight"
-	"ships3d/client3ds/protocol"
-	"ships3d/client3ds/ship"
+	"github.com/jonbul/ships3D-3ds/flight"
+	"github.com/jonbul/ships3D-3ds/protocol"
+	"github.com/jonbul/ships3D-3ds/ship"
 )
 
 // The hangar the ship screen's ship turns in: a round platform floating in open space, with a

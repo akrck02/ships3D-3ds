@@ -10,7 +10,7 @@ import (
 	"github.com/akrck02/go-renderer/models"
 	"github.com/akrck02/go-renderer/scene"
 
-	"ships3d/client3ds/flight"
+	"github.com/jonbul/ships3D-3ds/flight"
 )
 
 // The ship screen's turning ship, on the touch screen under its name and arrows: a scene of its

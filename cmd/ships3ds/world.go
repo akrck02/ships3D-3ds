@@ -7,12 +7,12 @@ import (
 	"github.com/akrck02/go-renderer/models"
 	"github.com/akrck02/go-renderer/scene"
 
-	"ships3d/client3ds/chase"
-	"ships3d/client3ds/flight"
-	"ships3d/client3ds/game"
-	"ships3d/client3ds/impact"
-	"ships3d/client3ds/protocol"
-	"ships3d/client3ds/ship"
+	"github.com/jonbul/ships3D-3ds/chase"
+	"github.com/jonbul/ships3D-3ds/flight"
+	"github.com/jonbul/ships3D-3ds/game"
+	"github.com/jonbul/ships3D-3ds/impact"
+	"github.com/jonbul/ships3D-3ds/protocol"
+	"github.com/jonbul/ships3D-3ds/ship"
 )
 
 // The camera, in world units: a chase camera above and behind the ship, as the browser's, in ship

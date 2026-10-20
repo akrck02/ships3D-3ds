@@ -12,10 +12,10 @@ import (
 	"github.com/akrck02/go-renderer/ctr"
 	"github.com/akrck02/go-renderer/scene"
 
-	"ships3d/client3ds/account"
-	"ships3d/client3ds/game"
-	"ships3d/client3ds/profile"
-	"ships3d/client3ds/ship"
+	"github.com/jonbul/ships3D-3ds/account"
+	"github.com/jonbul/ships3D-3ds/game"
+	"github.com/jonbul/ships3D-3ds/profile"
+	"github.com/jonbul/ships3D-3ds/ship"
 )
 
 // The way through the game: the title, then entering the remembered server (logging in again

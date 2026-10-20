@@ -6,7 +6,7 @@ package chase
 import (
 	"math"
 
-	"ships3d/client3ds/flight"
+	"github.com/jonbul/ships3D-3ds/flight"
 )
 
 // Where the camera sits and looks, in ship radii, and how fast it catches up, per second.

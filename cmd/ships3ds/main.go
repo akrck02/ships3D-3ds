@@ -23,16 +23,16 @@ import (
 	"github.com/akrck02/go-renderer/draw2d"
 	"github.com/akrck02/go-renderer/models"
 
-	"ships3d/client3ds/account"
-	"ships3d/client3ds/chase"
-	"ships3d/client3ds/figures"
-	"ships3d/client3ds/flight"
-	"ships3d/client3ds/game"
-	"ships3d/client3ds/profile"
-	"ships3d/client3ds/protocol"
-	"ships3d/client3ds/radar"
-	"ships3d/client3ds/tilt"
-	"ships3d/client3ds/websocket"
+	"github.com/jonbul/ships3D-3ds/account"
+	"github.com/jonbul/ships3D-3ds/chase"
+	"github.com/jonbul/ships3D-3ds/figures"
+	"github.com/jonbul/ships3D-3ds/flight"
+	"github.com/jonbul/ships3D-3ds/game"
+	"github.com/jonbul/ships3D-3ds/profile"
+	"github.com/jonbul/ships3D-3ds/protocol"
+	"github.com/jonbul/ships3D-3ds/radar"
+	"github.com/jonbul/ships3D-3ds/tilt"
+	"github.com/jonbul/ships3D-3ds/websocket"
 )
 
 // Set with -ldflags -X: the server the game starts with, and a guest's name. The real server is

@@ -7,7 +7,7 @@ import (
 
 	sound "github.com/akrck02/go-sound"
 
-	"ships3d/client3ds/chiptune"
+	"github.com/jonbul/ships3D-3ds/chiptune"
 )
 
 // The game's sound, through go-sound (the console's DSP): chiptune effects and music worked out in

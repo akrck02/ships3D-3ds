@@ -6,8 +6,8 @@ import (
 
 	"github.com/akrck02/go-renderer/scene"
 
-	"ships3d/client3ds/flight"
-	"ships3d/client3ds/protocol"
+	"github.com/jonbul/ships3D-3ds/flight"
+	"github.com/jonbul/ships3D-3ds/protocol"
 )
 
 // shipMaterial lights every ship like the sun lights the island: the browser's flat shading.

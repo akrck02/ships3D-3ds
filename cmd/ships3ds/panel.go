@@ -11,7 +11,7 @@ import (
 	"github.com/akrck02/go-renderer/draw2d"
 	ui "github.com/akrck02/go-ui"
 
-	"ships3d/client3ds/profile"
+	"github.com/jonbul/ships3D-3ds/profile"
 )
 
 // The menu's pages, by title.

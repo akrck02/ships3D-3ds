@@ -6,8 +6,8 @@ import (
 	"github.com/akrck02/go-renderer/graphics"
 	"github.com/akrck02/go-renderer/scene"
 
-	"ships3d/client3ds/flight"
-	"ships3d/client3ds/game"
+	"github.com/jonbul/ships3D-3ds/flight"
+	"github.com/jonbul/ships3D-3ds/game"
 )
 
 // The force field shows itself as the ship nears the world's edge: the face of the edge nearest

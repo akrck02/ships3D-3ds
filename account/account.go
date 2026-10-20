@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"ships3d/client3ds/protocol"
-	"ships3d/client3ds/web"
+	"github.com/jonbul/ships3D-3ds/protocol"
+	"github.com/jonbul/ships3D-3ds/web"
 )
 
 // Connection is a connection to the server for one request.

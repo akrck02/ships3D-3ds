@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"ships3d/client3ds/flight"
+	"github.com/jonbul/ships3D-3ds/flight"
 )
 
 // serverSnapshot writes a snapshot as the server's encoder does.

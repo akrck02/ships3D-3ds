@@ -2,7 +2,7 @@
 // does (ships-vue-3d, src/game/radar.ts): the map turns with the ship, so ahead is always up.
 package radar
 
-import "ships3d/client3ds/flight"
+import "github.com/jonbul/ships3D-3ds/flight"
 
 // Ranges are the distances the map can show, in world units, as the browser's.
 var Ranges = []float64{300, 600, 1200, 2400}

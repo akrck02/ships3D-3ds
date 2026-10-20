@@ -6,9 +6,9 @@ import (
 	"github.com/akrck02/go-3ds/app"
 	"github.com/akrck02/go-renderer/ctr"
 
-	"ships3d/client3ds/flight"
-	"ships3d/client3ds/profile"
-	"ships3d/client3ds/tilt"
+	"github.com/jonbul/ships3D-3ds/flight"
+	"github.com/jonbul/ships3D-3ds/profile"
+	"github.com/jonbul/ships3D-3ds/tilt"
 )
 
 // fireButtons shoot: R, as a trigger, and A.

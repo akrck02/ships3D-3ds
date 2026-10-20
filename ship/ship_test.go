@@ -4,8 +4,8 @@ import (
 	"math"
 	"testing"
 
-	"ships3d/client3ds/flight"
-	"ships3d/client3ds/protocol"
+	"github.com/jonbul/ships3D-3ds/flight"
+	"github.com/jonbul/ships3D-3ds/protocol"
 )
 
 var everyType = []string{partBox, partSphere, partCylinder, partCone, partWedge, partTorus, partDome, partCapsule, partPyramid, partTube, partPrism, partFrustum}

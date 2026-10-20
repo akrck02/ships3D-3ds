@@ -1,4 +1,4 @@
-module ships3d/client3ds
+module github.com/jonbul/ships3D-3ds
 
 go 1.25.6
 

@@ -8,7 +8,7 @@ import (
 	"github.com/akrck02/go-renderer/ctr"
 	"github.com/akrck02/go-renderer/draw2d"
 
-	"ships3d/client3ds/game"
+	"github.com/jonbul/ships3D-3ds/game"
 )
 
 // The top screen's readings over the game: life as a bar of charges at the top left, and the

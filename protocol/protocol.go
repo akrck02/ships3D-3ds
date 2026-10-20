@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"ships3d/client3ds/flight"
+	"github.com/jonbul/ships3D-3ds/flight"
 )
 
 // The message types, the "type" field of every message.

@@ -15,9 +15,9 @@ import (
 	"github.com/akrck02/go-renderer/scene"
 	ui "github.com/akrck02/go-ui"
 
-	"ships3d/client3ds/flight"
-	"ships3d/client3ds/protocol"
-	"ships3d/client3ds/ship"
+	"github.com/jonbul/ships3D-3ds/flight"
+	"github.com/jonbul/ships3D-3ds/protocol"
+	"github.com/jonbul/ships3D-3ds/ship"
 )
 
 // titleShipDesign is the Kestrel, the server's built-in fighter (game/defaultShips.go), kept here

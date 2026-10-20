@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"ships3d/client3ds/flight"
+	"github.com/jonbul/ships3D-3ds/flight"
 )
 
 const tolerance = 1e-9

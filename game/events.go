@@ -1,6 +1,6 @@
 package game
 
-import "ships3d/client3ds/flight"
+import "github.com/jonbul/ships3D-3ds/flight"
 
 // EventKind is what happened, for the screen to show it.
 type EventKind int

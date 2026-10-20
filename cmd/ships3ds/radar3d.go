@@ -10,10 +10,10 @@ import (
 	"github.com/akrck02/go-renderer/models"
 	"github.com/akrck02/go-renderer/scene"
 
-	"ships3d/client3ds/flight"
-	"ships3d/client3ds/protocol"
-	"ships3d/client3ds/radar"
-	"ships3d/client3ds/ship"
+	"github.com/jonbul/ships3D-3ds/flight"
+	"github.com/jonbul/ships3D-3ds/protocol"
+	"github.com/jonbul/ships3D-3ds/radar"
+	"github.com/jonbul/ships3D-3ds/ship"
 )
 
 // The 3D radar: a dish of radius 1, seen from above and behind our ship as the browser's radar is,

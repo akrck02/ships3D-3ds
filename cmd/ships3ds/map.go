@@ -10,7 +10,7 @@ import (
 	"github.com/akrck02/go-renderer/draw2d"
 	ui "github.com/akrck02/go-ui"
 
-	"ships3d/client3ds/radar"
+	"github.com/jonbul/ships3D-3ds/radar"
 )
 
 // The map's look, in pixels of the touch screen.
