@@ -3,27 +3,15 @@
 package main
 
 import (
-	_ "embed"
-
 	"github.com/akrck02/go-renderer/draw2d"
-	"github.com/akrck02/go-renderer/opengl/overlay"
 	ui "github.com/akrck02/go-ui"
+	"github.com/jonbul/ships3D-3ds/pixelart"
 
 	"github.com/akrck02/go-3ds/bottom"
 )
 
-// The game's look on the console: pixel fonts and square corners, as handheld space shooters
-// had, in the colours of space. The fonts are under the SIL Open Font License (fonts/OFL-*.txt),
-// from Google Fonts: VT323 for text, Silkscreen for headings and names, Press Start 2P for
-// figures. Each is crisp at its own sizes only: VT323 at 16, the others at multiples of 8.
-var (
-	//go:embed fonts/VT323-Regular.ttf
-	vt323 []byte
-	//go:embed fonts/Silkscreen-Bold.ttf
-	silkscreenBold []byte
-	//go:embed fonts/PressStart2P-Regular.ttf
-	pressStart []byte
-)
+// The game's look on the console: pixel fonts (package pixelart) and square corners, as handheld
+// space shooters had, in the colours of space.
 
 // The pixel fonts' sizes, in pixels.
 const (
@@ -34,9 +22,7 @@ const (
 
 // usePixelFonts makes every text draw in the pixel fonts; call it before the first painter is
 // made, which reads them.
-func usePixelFonts() {
-	overlay.UseFonts(overlay.Fonts{Regular: vt323, Medium: vt323, Bold: silkscreenBold, Mono: pressStart})
-}
+func usePixelFonts() { pixelart.UseFonts() }
 
 // spaceTheme is go-3ds's bottom-screen theme in pixel art and the colours of space: a night blue,
 // pale ink, and an arcade gold for what is chosen; square corners and hard shadows.

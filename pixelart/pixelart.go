@@ -58,3 +58,23 @@ func PaintedBitmap(drawing *draw2d.List, rows []string, x, y, size float32, pale
 		}
 	}
 }
+
+// Scale makes everything drawn in drawing from its command start onwards factor times as large,
+// from the top left corner: a picture laid out in a small screen's pixels, shown on a larger one
+// with the same look.
+func Scale(drawing *draw2d.List, start int, factor float32) {
+	for index := start; index < len(drawing.Commands); index++ {
+		command := &drawing.Commands[index]
+		command.Area = scaled(command.Area, factor)
+		command.Clip = scaled(command.Clip, factor)
+		command.Radius *= factor
+		command.BorderWidth *= factor
+		command.Blur *= factor
+		command.Size *= factor
+		command.Baseline *= factor
+	}
+}
+
+func scaled(area draw2d.Rect, factor float32) draw2d.Rect {
+	return draw2d.Rect{X: area.X * factor, Y: area.Y * factor, Width: area.Width * factor, Height: area.Height * factor}
+}

@@ -4,10 +4,10 @@ go 1.25.6
 
 require (
 	github.com/akrck02/go-3ds v0.2.0
-	github.com/akrck02/go-engine v0.0.3
+	github.com/akrck02/go-engine v0.0.4-0.20261021003046-3f0a5c3201e9
 	github.com/akrck02/go-renderer v0.2.0
 	github.com/akrck02/go-sound v0.1.1
-	github.com/akrck02/go-ui v0.1.1
+	github.com/akrck02/go-ui v0.1.2-0.20261021002903-4cd5ea57980d
 	github.com/gorilla/websocket v1.5.3
 )
 

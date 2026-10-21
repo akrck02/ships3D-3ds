@@ -10,17 +10,19 @@ import (
 
 	"github.com/jonbul/ships3D-3ds/arena"
 	"github.com/jonbul/ships3D-3ds/chase"
+	"github.com/jonbul/ships3D-3ds/hud"
 	"github.com/jonbul/ships3D-3ds/match"
+	"github.com/jonbul/ships3D-3ds/pixelart"
 	"github.com/jonbul/ships3D-3ds/protocol"
 	"github.com/jonbul/ships3D-3ds/sounds"
 	"github.com/jonbul/ships3D-3ds/transport"
 )
 
-// engineFar is how far go-engine's camera sees (v0.0.3 fixes it): the sky is brought inside it.
-const engineFar = 2000
-
 // spaceAmbient is the light that reaches the ships from all round, with no sky to light them.
 const spaceAmbient = 0.9
+
+// screenPixelsHigh is the 3DS's top screen's height: the HUD is laid out in its pixels.
+const screenPixelsHigh = 240
 
 // The volumes, from 0 to 1, until the game has its settings.
 const (
@@ -40,8 +42,7 @@ type Pilot struct {
 	played *match.Match
 	view   models.Camera
 	status string
-	// readings is the HUD's drawing, made again every frame (readings*.go).
-	readings draw2d.List
+	now    float64 // seconds, this frame
 }
 
 // The real server, and what a guest flies when the scene names nothing.
@@ -54,14 +55,13 @@ const (
 // Start builds the arena in the engine's scene and starts the match.
 func (pilot *Pilot) Start(context *engine.Context) {
 	pilot.world = arena.NewWorldIn(context.Scene.World())
-	pilot.world.FitSky(engineFar)
-	// The desktop paints the sky as a blend from its zenith to its horizon, and the zenith is the
-	// sky's light on the ships: space is dark all round, so the ships take their light from the
-	// ambient instead.
-	environment := &context.Scene.World().Environment
-	environment.SkyZenith = environment.SkyHorizon
-	environment.Ambient = spaceAmbient
-	pilot.view = models.Camera{Far: engineFar, Near: arena.CameraNear, FieldOfView: chase.FieldOfView}
+	if camera, found := context.Scene.MainCamera(); found {
+		if settings, isCamera := camera.Camera(); isCamera {
+			settings.Near, settings.Far = arena.CameraNear, arena.CameraFar
+		}
+	}
+	drawOver(pilot.paintReadings)
+	pilot.view = models.Camera{Far: arena.CameraFar, Near: arena.CameraNear, FieldOfView: chase.FieldOfView}
 	pilot.startSound()
 	played, err := match.Start(transport.Dial, orDefault(pilot.Server, realServer), "",
 		orDefault(pilot.Ship, defaultShip), orDefault(pilot.Name, guestName), match.Hooks{
@@ -93,6 +93,8 @@ func (pilot *Pilot) Update(context *engine.Context) {
 		pilot.played = nil
 		return
 	}
+	pilot.now = context.Time
+	darkenSky(context.Scene)
 	state := pilot.played.Game
 	events := state.TakeEvents()
 	pilot.sound.Hear(events, state)
@@ -100,7 +102,27 @@ func (pilot *Pilot) Update(context *engine.Context) {
 	pilot.sound.RunEngine(flying, math.Abs(state.Own.Speed)/math.Max(state.Settings.MaxSpeed, 1))
 	pilot.world.Show(state, events, &pilot.view, context.Delta, context.Time)
 	pilot.placeCamera(context)
-	showReadings(context.Scene, &pilot.readings, state, context.Time)
+}
+
+// paintReadings paints the HUD over the 3D: the 3DS's life bar and the copilot.
+func (pilot *Pilot) paintReadings(drawing *draw2d.List, width, height float32) {
+	if pilot.played == nil {
+		return
+	}
+	// Laid out in the 3DS's pixels, and made larger on a larger screen, so it looks the same.
+	scale := float32(max(1, math.Floor(float64(height)/screenPixelsHigh)))
+	start := len(drawing.Commands)
+	hud.Paint(drawing, pilot.played.Game, pilot.now, width/scale, height/scale)
+	pixelart.Scale(drawing, start, scale)
+}
+
+// darkenSky keeps the sky the dark of space: the desktop paints it as a blend from its zenith to
+// its horizon, and the zenith is the sky's light on the ships, so the ships take their light from
+// the ambient instead. The engine sets its own every frame, so this follows it.
+func darkenSky(scene *engine.Scene) {
+	environment := &scene.World().Environment
+	environment.SkyZenith = environment.SkyHorizon
+	environment.Ambient = spaceAmbient
 }
 
 // startSound opens the sound and starts the music; without it the game plays on in silence.
