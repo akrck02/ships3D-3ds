@@ -27,7 +27,7 @@ type radarScreen struct {
 func openRadar() *radarScreen {
 	bottom := engine.NewScene(files)
 	shown := &radarScreen{scene: bottom, dish: arena.NewRadarIn(bottom.World()), scanner: radar.NewScanner(), blips: map[string]radar.Blip{}}
-	camera, err := bottom.NewNode(scenefile.Node{Name: "Camera", Camera: &scenefile.Camera{Main: true, FieldOfView: radarFieldOfView, Near: 0.1, Far: 20}})
+	camera, err := bottom.NewNode(scenefile.Node{Name: "Camera", Camera: &scenefile.Camera{Main: true, FieldOfView: arena.RadarView.FieldOfView * degreesPerRadian, Near: 0.1, Far: 20}})
 	if err != nil {
 		println(err.Error()) // the debug log: the second screen stays empty
 		return shown
@@ -37,9 +37,6 @@ func openRadar() *radarScreen {
 	engine.SetSecondScreen(bottom)
 	return shown
 }
-
-// radarFieldOfView is the radar camera's, in degrees, as go-renderer's default.
-const radarFieldOfView = 45
 
 // show turns the sweep and lets it see the ships it passes over.
 func (shown *radarScreen) show(state *game.Game, now float64) {

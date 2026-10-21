@@ -130,3 +130,13 @@ func TestAMenuPaintsItsWindowOverTheNight(test *testing.T) {
 		test.Fatal("the menu drew nothing")
 	}
 }
+
+func TestATouchOnAModesCardChoosesIt(test *testing.T) {
+	card := modeCard(1, 2)
+	if got := ModeTouched(card.X+card.Width/2, card.Y+card.Height/2, 2); got != 1 {
+		test.Errorf("a touch in the second card's middle chose mode %d, want 1", got)
+	}
+	if got := ModeTouched(1, 1, 2); got != -1 {
+		test.Errorf("a touch in the screen's corner chose mode %d, want none", got)
+	}
+}

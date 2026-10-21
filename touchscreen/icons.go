@@ -106,6 +106,11 @@ const (
 
 // bitmap draws a picture drawn by hand in text with its top left at x, y: '#' in main, '+' in light.
 func bitmap(drawing *draw2d.List, rows []string, x, y float32, main, light draw2d.Color) {
+	scaledBitmap(drawing, rows, x, y, 1, main, light)
+}
+
+// scaledBitmap draws such a picture with each of its pixels size pixels wide.
+func scaledBitmap(drawing *draw2d.List, rows []string, x, y, size float32, main, light draw2d.Color) {
 	for row, line := range rows {
 		for column := 0; column < len(line); column++ {
 			colour := main
@@ -120,7 +125,7 @@ func bitmap(drawing *draw2d.List, rows []string, x, y float32, main, light draw2
 			for end < len(line) && line[end] == line[column] {
 				end++
 			}
-			drawing.Rectangle(draw2d.Rect{X: x + float32(column), Y: y + float32(row), Width: float32(end - column), Height: 1}, 0, colour, draw2d.Color{}, 0)
+			drawing.Rectangle(draw2d.Rect{X: x + float32(column)*size, Y: y + float32(row)*size, Width: float32(end-column) * size, Height: size}, 0, colour, draw2d.Color{}, 0)
 			column = end - 1
 		}
 	}

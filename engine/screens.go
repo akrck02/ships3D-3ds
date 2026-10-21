@@ -1,6 +1,8 @@
 package main
 
 import (
+	"math"
+
 	"github.com/akrck02/go-engine/engine"
 	"github.com/akrck02/go-engine/space"
 	"github.com/akrck02/go-renderer/draw2d"
@@ -8,6 +10,7 @@ import (
 
 	"github.com/jonbul/ships3D-3ds/arena"
 	"github.com/jonbul/ships3D-3ds/pixelart"
+	"github.com/jonbul/ships3D-3ds/touchscreen"
 )
 
 // The scenes, in the order a player goes through them.
@@ -42,7 +45,7 @@ func stage(context *engine.Context) *arena.World {
 	return world
 }
 
-// look puts the scene's main camera where view is.
+// look puts the scene's main camera where view is, seeing as wide.
 func look(context *engine.Context, view models.Camera) {
 	camera, found := context.Scene.MainCamera()
 	if !found {
@@ -53,7 +56,13 @@ func look(context *engine.Context, view models.Camera) {
 	up := vectorOf(view.Up[0], view.Up[1], view.Up[2])
 	camera.Transform.Position = eye
 	camera.Transform.Rotation = space.RotationLookingAt(target.Subtract(eye), up)
+	if settings, isCamera := camera.Camera(); isCamera && view.FieldOfView > 0 {
+		settings.FieldOfView = view.FieldOfView * degreesPerRadian
+	}
 }
+
+// degreesPerRadian turns go-renderer's angles into the engine's.
+const degreesPerRadian = 180 / math.Pi
 
 // Title is the first screen, as the 3DS opens: the name large over space, a ship crossing it with
 // a barrel roll, a prompt that blinks.
@@ -62,13 +71,16 @@ type Title struct {
 	now   float64
 }
 
-// Start builds the title's space.
+// Start builds the title's space; on the 3DS the touch screen shows the prompt.
 func (title *Title) Start(context *engine.Context) {
 	title.world = stage(context)
 	drawInterface(nil)
 	drawOver(func(drawing *draw2d.List, width, height float32) {
 		paintScaled(drawing, width, height, title.paint)
 	})
+	if hasTouchScreen {
+		showTouchScreen(func(drawing *draw2d.List) { touchscreen.TitlePrompt(drawing, textMeasurer(), title.now) })
+	}
 }
 
 // Update flies the title's ship, and goes on to the modes when the player says so.
@@ -78,26 +90,23 @@ func (title *Title) Update(context *engine.Context) {
 	var view models.Camera
 	title.world.ShowTitle(context.Time, &view)
 	look(context, view)
-	if confirmed(context.Input) {
+	if confirmed(context.Input) || touchInput(context.Input).Pressed&touchscreen.ButtonTouch != 0 {
 		playSound(func(sound *soundSet) { sound.Play(sound.Choose, 1) })
 		context.ChangeScene(modeScene)
 	}
 }
 
 func (title *Title) paint(drawing *draw2d.List, width, height float32) {
-	centred(drawing, "SHIPS 3D", width, height*0.4, titleSize, draw2d.Bold, colours.ink)
-	centred(drawing, "a space dogfight", width, height*0.4+24, pixelart.TextSize, draw2d.Regular, colours.soft)
-	prompt(drawing, "PRESS ENTER OR A", width, height*0.75, title.now)
+	topHeading(drawing, width, "Ships 3D", platformCaption)
+	if !hasTouchScreen {
+		prompt(drawing, "PRESS ENTER OR A", width, height*0.75, title.now)
+	}
 }
 
 // The modes a player chooses between; the assault isn't in this client yet.
-var modes = []struct {
-	name, text string
-	icon       []string
-	open       bool
-}{
-	{"FREE FOR ALL", "Every pilot for themselves", freeForAllIcon, true},
-	{"ASSAULT", "Coming soon", assaultIcon, false},
+var modes = []touchscreen.Mode{
+	{Name: "FREE FOR ALL", Text: "Every pilot for themselves", Icon: touchscreen.FreeForAllIcon, Open: true},
+	{Name: "ASSAULT", Text: "Coming soon", Icon: touchscreen.AssaultIcon},
 }
 
 // Modes is choosing the game's mode: a window with a big icon for each, the star on the one
@@ -108,13 +117,18 @@ type Modes struct {
 	now    float64
 }
 
-// Start builds the space behind the window.
+// Start builds the space behind the window; on the 3DS the modes are on the touch screen.
 func (choice *Modes) Start(context *engine.Context) {
 	choice.world = stage(context)
 	drawInterface(nil)
 	drawOver(func(drawing *draw2d.List, width, height float32) {
 		paintScaled(drawing, width, height, choice.paint)
 	})
+	if hasTouchScreen {
+		showTouchScreen(func(drawing *draw2d.List) {
+			touchscreen.ModeChoice(drawing, textMeasurer(), modes, choice.chosen, choice.now)
+		})
+	}
 }
 
 // Update moves the choice, and goes on or back.
@@ -126,18 +140,33 @@ func (choice *Modes) Update(context *engine.Context) {
 	choice.world.HideTitle()
 	look(context, view)
 	keys := context.Input
-	if keys.Pressed(engine.KeyLeft) || keys.Pressed(engine.KeyRight) {
+	read := touchInput(keys)
+	touched := choice.touched(read)
+	if read.Pressed&(touchscreen.ButtonLeft|touchscreen.ButtonRight) != 0 {
 		choice.chosen = (choice.chosen + 1) % len(modes)
 		playSound(func(sound *soundSet) { sound.Play(sound.Move, 1) })
 	}
 	switch {
-	case confirmed(keys) && modes[choice.chosen].open:
+	case (confirmed(keys) || touched) && modes[choice.chosen].Open:
 		playSound(func(sound *soundSet) { sound.Play(sound.Choose, 1) })
 		context.ChangeScene(shipScene)
 	case cancelled(keys):
 		playSound(func(sound *soundSet) { sound.Play(sound.Back, 1) })
 		context.ChangeScene(titleScene)
 	}
+}
+
+// touched chooses the mode whose card a touch landed on, and tells whether one did.
+func (choice *Modes) touched(read touchscreen.Input) bool {
+	if read.Pressed&touchscreen.ButtonTouch == 0 {
+		return false
+	}
+	index := touchscreen.ModeTouched(read.TouchX, read.TouchY, len(modes))
+	if index < 0 {
+		return false
+	}
+	choice.chosen = index
+	return true
 }
 
 // The mode window's measures, in pixels.
@@ -149,6 +178,11 @@ const (
 )
 
 func (choice *Modes) paint(drawing *draw2d.List, width, height float32) {
+	if hasTouchScreen {
+		mode := modes[choice.chosen]
+		topHeading(drawing, width, "Game mode", mode.Name)
+		return
+	}
 	area := draw2d.Rect{X: (width - modeWindowWidth) / 2, Y: (height - modeWindowHeight) / 2, Width: modeWindowWidth, Height: modeWindowHeight}
 	window(drawing, area, "GAME MODE")
 	for index, mode := range modes {
@@ -159,13 +193,13 @@ func (choice *Modes) paint(drawing *draw2d.List, width, height float32) {
 			cursor(drawing, card.X+4, card.Y+4, choice.now)
 			ink, iconColour = colours.ink, colours.accent
 		}
-		iconWidth := float32(len(mode.icon[0])) * modeIconPixel
-		pixelart.PaintedBitmap(drawing, mode.icon, card.X+(card.Width-iconWidth)/2, card.Y+10, modeIconPixel,
+		iconWidth := float32(len(mode.Icon[0])) * modeIconPixel
+		pixelart.PaintedBitmap(drawing, mode.Icon, card.X+(card.Width-iconWidth)/2, card.Y+10, modeIconPixel,
 			map[byte]draw2d.Color{'#': iconColour, '+': colours.ink})
-		label := card.X + (card.Width-textWidth(mode.name, pixelart.LabelSize, draw2d.Mono))/2
-		drawing.Text(mode.name, label, card.Y+72, pixelart.LabelSize, draw2d.Mono, ink)
-		text := card.X + (card.Width-textWidth(mode.text, pixelart.TextSize, draw2d.Regular))/2
-		drawing.Text(mode.text, text, card.Y+92, pixelart.TextSize, draw2d.Regular, colours.soft)
+		label := card.X + (card.Width-textWidth(mode.Name, pixelart.LabelSize, draw2d.Mono))/2
+		drawing.Text(mode.Name, label, card.Y+72, pixelart.LabelSize, draw2d.Mono, ink)
+		text := card.X + (card.Width-textWidth(mode.Text, pixelart.TextSize, draw2d.Regular))/2
+		drawing.Text(mode.Text, text, card.Y+92, pixelart.TextSize, draw2d.Regular, colours.soft)
 	}
 	hints(drawing, "< > CHOOSE   ENTER/A OK   ESC/B BACK", width, height)
 }

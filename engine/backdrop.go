@@ -41,3 +41,20 @@ func followCamera(played *engine.Scene) {
 		shownBackdrop.Transform = graphics.Translate(graphics.Vec4{float32(position.X), float32(position.Y), float32(position.Z), 0})
 	}
 }
+
+// spaceAmbient is the light that reaches the ships from all round where the sky can't light them.
+const spaceAmbient = 0.9
+
+// darkenSky lights the scene as space is (arena.LightSpace), as the 3DS program does: the engine
+// sets the scene's own light every frame, so this follows it. Where the renderer paints a sky
+// (paintsSky), it blends from the zenith to the horizon and the zenith is the sky's light on the
+// ships: there the zenith is the horizon's dark, and the ships take their light from the ambient.
+func darkenSky(scene *engine.Scene) {
+	environment := &scene.World().Environment
+	arena.LightSpace(environment)
+	if paintsSky {
+		environment.SkyZenith = environment.SkyHorizon
+		environment.Ambient = spaceAmbient
+	}
+	followCamera(scene)
+}

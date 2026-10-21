@@ -19,3 +19,13 @@ func TestScalingMakesWhatWasDrawnLargerFromTheTopLeft(test *testing.T) {
 		test.Fatalf("the text is at %v, baseline %v, size %v", text.Area.X, text.Baseline, text.Size)
 	}
 }
+
+func TestMovingADrawingMovesItsTextsBaselineToo(test *testing.T) {
+	var drawing draw2d.List
+	drawing.Text("hello", 10, 20, 16, draw2d.Regular, draw2d.Color{1, 1, 1, 1})
+	Move(&drawing, 0, 5, 7)
+	command := drawing.Commands[0]
+	if command.Area.X != 15 || command.Baseline != 27 {
+		test.Errorf("the text moved to x %v, baseline %v; want 15 and 27", command.Area.X, command.Baseline)
+	}
+}

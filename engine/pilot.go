@@ -19,9 +19,6 @@ import (
 	"github.com/jonbul/ships3D-3ds/transport"
 )
 
-// spaceAmbient is the light that reaches the ships from all round, with no sky to light them.
-const spaceAmbient = 0.9
-
 // screenPixelsHigh is the 3DS's top screen's height: the HUD is laid out in its pixels.
 const screenPixelsHigh = 240
 
@@ -169,16 +166,6 @@ func (pilot *Pilot) paintPause(drawing *draw2d.List, width, height float32) {
 		}
 		drawing.Text(label, area.X+32, top+14, pixelart.TextSize, draw2d.Regular, colours.ink)
 	}
-}
-
-// darkenSky keeps the sky the dark of space: the desktop paints it as a blend from its zenith to
-// its horizon, and the zenith is the sky's light on the ships, so the ships take their light from
-// the ambient instead. The engine sets its own every frame, so this follows it.
-func darkenSky(scene *engine.Scene) {
-	environment := &scene.World().Environment
-	environment.SkyZenith = environment.SkyHorizon
-	environment.Ambient = spaceAmbient
-	followCamera(scene)
 }
 
 // placeCamera puts the scene's main camera where the arena's chase camera is.

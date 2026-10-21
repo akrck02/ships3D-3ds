@@ -75,6 +75,17 @@ func Scale(drawing *draw2d.List, start int, factor float32) {
 	}
 }
 
+// Move moves what was drawn into drawing from start on by x and y pixels: a picture laid out at
+// the screen's corner shown somewhere else, as the editor's view.
+func Move(drawing *draw2d.List, start int, x, y float32) {
+	for index := start; index < len(drawing.Commands); index++ {
+		command := &drawing.Commands[index]
+		command.Area.X, command.Area.Y = command.Area.X+x, command.Area.Y+y
+		command.Clip.X, command.Clip.Y = command.Clip.X+x, command.Clip.Y+y
+		command.Baseline += y
+	}
+}
+
 func scaled(area draw2d.Rect, factor float32) draw2d.Rect {
 	return draw2d.Rect{X: area.X * factor, Y: area.Y * factor, Width: area.Width * factor, Height: area.Height * factor}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"math"
 
 	"github.com/akrck02/go-renderer/draw2d"
@@ -40,15 +41,52 @@ var cursorStar = []string{"...#...", "...#...", "..#+#..", "##+++##", "..#+#..",
 // measurer measures text, to centre it; made once, after the pixel fonts are chosen.
 var measurer draw2d.Measurer
 
-func textWidth(text string, size float32, weight draw2d.Weight) float32 {
-	if measurer == nil {
-		made, err := overlay.NewMeasurer()
-		if err != nil {
-			return float32(len(text)) * size * 0.6 // a guess, so the text still shows
-		}
-		measurer = made
+// guessedMeasurer guesses text's width when no measurer could be made, so the text still shows.
+type guessedMeasurer struct{}
+
+// guessedShare is how wide a letter is guessed to be, of the text's size.
+const guessedShare = 0.6
+
+func (guessedMeasurer) MeasureText(text string, size float32, _ draw2d.Weight, _ float32) draw2d.TextMetrics {
+	return draw2d.TextMetrics{Width: float32(len(text)) * size * guessedShare}
+}
+
+func (guessedMeasurer) HasIcon(string) bool { return false }
+
+// textMeasurer is the game's measurer of text.
+func textMeasurer() draw2d.Measurer {
+	if measurer != nil {
+		return measurer
 	}
-	return measurer.MeasureText(text, size, weight, 1).Width
+	made, err := overlay.NewMeasurer()
+	if err != nil {
+		slog.Warn("text could not be measured: it is guessed", "error", err)
+		measurer = guessedMeasurer{}
+		return measurer
+	}
+	measurer = made
+	return measurer
+}
+
+func textWidth(text string, size float32, weight draw2d.Weight) float32 {
+	return textMeasurer().MeasureText(text, size, weight, 1).Width
+}
+
+// The top screen's heading, as the 3DS program lays it out with go-ui: the heading in the title's
+// face from headingTop down, its caption just under it, both centred.
+const (
+	captionDrop       = 26 // from the heading's baseline to the caption's
+	headingTop        = 28
+	headingBaseline   = headingTop + titleSize
+	captionBaseline   = headingBaseline + captionDrop
+	headingInk        = "#e9edff"
+	headingCaptionInk = "#aab4ea"
+)
+
+// topHeading draws a heading and its caption over the top of the top screen.
+func topHeading(drawing *draw2d.List, width float32, heading, caption string) {
+	centred(drawing, heading, width, headingBaseline, titleSize, draw2d.Bold, draw2d.Hex(headingInk))
+	centred(drawing, caption, width, captionBaseline, pixelart.TextSize, draw2d.Regular, draw2d.Hex(headingCaptionInk))
 }
 
 // paintScaled paints a screen laid out in the 3DS top screen's pixels, larger on a larger screen
