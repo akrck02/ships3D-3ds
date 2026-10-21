@@ -31,6 +31,7 @@ type Pilot struct {
 	Server string `json:"server"` // address:port, or https://name:port; empty is the real server
 
 	world  *arena.World
+	radar  *radarScreen
 	sound  *soundSet
 	played *match.Match
 	view   models.Camera
@@ -50,6 +51,7 @@ const (
 // Start builds the arena in the engine's scene and starts the match.
 func (pilot *Pilot) Start(context *engine.Context) {
 	pilot.world = stage(context)
+	pilot.radar = openRadar()
 	drawOver(pilot.paintReadings)
 	pilot.view = models.Camera{Far: arena.CameraFar, Near: arena.CameraNear, FieldOfView: chase.FieldOfView}
 	pilot.sound = gameSound
@@ -100,6 +102,7 @@ func (pilot *Pilot) Update(context *engine.Context) {
 	flying := state.Welcomed && state.Alive
 	pilot.sound.RunEngine(flying, math.Abs(state.Own.Speed)/math.Max(state.Settings.MaxSpeed, 1))
 	pilot.world.Show(state, events, &pilot.view, context.Delta, context.Time)
+	pilot.radar.show(state, context.Time)
 	pilot.placeCamera(context)
 }
 
@@ -120,6 +123,7 @@ func (pilot *Pilot) choosePaused(context *engine.Context) bool {
 	}
 	pilot.played.Close()
 	pilot.played = nil
+	pilot.radar.close()
 	playSound(func(sound *soundSet) {
 		sound.Play(sound.Back, 1)
 		sound.RunEngine(false, 0)
