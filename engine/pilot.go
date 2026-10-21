@@ -1,39 +1,43 @@
 package main
 
 import (
+	"log/slog"
 	"math"
 
 	"github.com/akrck02/go-engine/engine"
-	"github.com/akrck02/go-engine/space"
-	"github.com/akrck02/go-renderer/draw2d"
 	"github.com/akrck02/go-renderer/models"
 
 	"github.com/jonbul/ships3D-3ds/arena"
 	"github.com/jonbul/ships3D-3ds/chase"
+	"github.com/jonbul/ships3D-3ds/figures"
 	"github.com/jonbul/ships3D-3ds/flight"
-	"github.com/jonbul/ships3D-3ds/hud"
 	"github.com/jonbul/ships3D-3ds/match"
-	"github.com/jonbul/ships3D-3ds/pixelart"
 	"github.com/jonbul/ships3D-3ds/protocol"
+	"github.com/jonbul/ships3D-3ds/radar"
 	"github.com/jonbul/ships3D-3ds/sounds"
+	"github.com/jonbul/ships3D-3ds/touchscreen"
 	"github.com/jonbul/ships3D-3ds/transport"
 )
 
-// screenPixelsHigh is the 3DS's top screen's height: the HUD is laid out in its pixels.
-const screenPixelsHigh = 240
-
 // Pilot plays a match on the server: it joins with a ship, flies it with the player's keys, and
-// shows the arena (package arena) inside the engine's scene, its camera chasing the ship.
+// shows the arena (package arena) inside the engine's scene, its camera chasing the ship. On the
+// 3DS the touch screen shows the radar and, with START, the menu, as the hand-written program
+// does; on the desktop Escape pauses over the game.
 type Pilot struct {
-	world  *arena.World
-	radar  *radarScreen
-	sound  *soundSet
-	played *match.Match
-	view   models.Camera
-	status string
-	now    float64 // seconds, this frame
-	paused bool    // the pause menu is open
-	resume bool    // which of the pause menu's two is chosen: Resume, or Leave
+	world   *arena.World
+	radar   *radarScreen
+	sound   *soundSet
+	played  *match.Match
+	view    models.Camera
+	status  string
+	now     float64 // seconds, this frame
+	paused  bool    // on the desktop, the pause menu is open
+	resume  bool    // which of the pause menu's two is chosen: Resume, or Leave
+	menu    touchMenu
+	joining touchscreen.Menu // the window while the server hasn't welcomed us yet
+	zoom    int              // the radar's reach, an index in radar.Ranges
+	figures figures.Counter
+	leaving bool // a choice of the menu asked to go back to the ships
 }
 
 // The real server, and what a guest flies when the scene names nothing.
@@ -48,137 +52,108 @@ func (pilot *Pilot) Start(context *engine.Context) {
 	pilot.world = stage(context)
 	drawInterface(nil)
 	pilot.radar = openRadar()
+	pilot.zoom = radar.DefaultRange
 	drawOver(pilot.paintReadings)
+	if hasTouchScreen {
+		showTouchScreen(pilot.paintTouchScreen)
+	}
 	pilot.view = models.Camera{Far: arena.CameraFar, Near: arena.CameraNear, FieldOfView: chase.FieldOfView}
 	pilot.sound = gameSound
-	cookie := ""
-	if player.LoggedIn() {
-		cookie = session().Cookie()
-	}
-	played, err := match.Start(transport.Dial, player.Server, cookie,
-		orDefault(chosen.shipID, defaultShip), playerName(), match.Hooks{
-			Fired: func() { pilot.sound.Play(pilot.sound.Laser, 1) },
-			Received: func(message protocol.Incoming, _ int) {
-				if message.Type == protocol.TypeFire {
-					pilot.sound.Play(pilot.sound.Laser, sounds.OtherShotsVolume)
-				}
-			},
-		})
+	pilot.status = "Connecting to " + player.Server + "…"
+	played, err := match.Start(transport.Dial, player.Server, matchCookie(), orDefault(chosen.shipID, defaultShip), playerName(), pilot.hooks())
 	if err != nil {
 		pilot.status = err.Error()
-		println(pilot.status) // the debug log: the arena shows empty
+		slog.Warn("the match could not start", "error", err)
 		return
 	}
 	pilot.played = played
 }
 
+// hooks are what the match tells the game as it goes: the shots' sounds, and the figures.
+func (pilot *Pilot) hooks() match.Hooks {
+	return match.Hooks{
+		Fired: func() { pilot.sound.Play(pilot.sound.Laser, 1) },
+		Received: func(message protocol.Incoming, bytes int) {
+			pilot.figures.Received(bytes)
+			if message.Type == protocol.TypeFire {
+				pilot.sound.Play(pilot.sound.Laser, sounds.OtherShotsVolume)
+			}
+		},
+		Sent: func(message string) { pilot.figures.Sent(len(message)) },
+	}
+}
+
+// matchCookie is the player's session for the match, or none for a guest.
+func matchCookie() string {
+	if player.LoggedIn() {
+		return session().Cookie()
+	}
+	return ""
+}
+
 // Update moves the match on a frame and shows it, through the scene's camera.
 func (pilot *Pilot) Update(context *engine.Context) {
+	pilot.now = context.Time
+	darkenSky(context.Scene)
 	if pilot.played == nil {
+		pilot.pressWithoutMatch(context)
 		return
 	}
-	if pausePressed(context.Input) {
-		pilot.paused, pilot.resume = !pilot.paused, true
-		playSound(func(sound *soundSet) { sound.Play(sound.Choose, 1) })
-	} else if pilot.paused && pilot.choosePaused(context) {
+	if pilot.pressMenus(context) || pilot.leaving {
+		pilot.leave(context)
 		return
 	}
-	controls, firing := controlsOf(context.Input)
-	if pilot.paused {
-		controls, firing = flight.Controls{}, false // the ship flies on straight while paused
-	}
-	if err := pilot.played.Exchange(controls, firing, context.Delta, context.Time); err != nil {
-		pilot.status = err.Error()
-		println(pilot.status) // the debug log
+	if err := pilot.played.Exchange(pilot.controls(context)); err != nil {
+		pilot.status = "Disconnected: " + err.Error()
+		slog.Warn("the match ended", "error", err)
 		pilot.played.Close()
 		pilot.played = nil
 		return
 	}
-	pilot.now = context.Time
-	darkenSky(context.Scene)
+	pilot.show(context)
+}
+
+// controls are this frame's controls and whether the ship fires, with its seconds and time; the
+// ship flies on straight while a menu is open.
+func (pilot *Pilot) controls(context *engine.Context) (flight.Controls, bool, float64, float64) {
+	turnTilt(context.Input, context.Delta)
+	if pilot.paused || pilot.menu.open {
+		return flight.Controls{}, false, context.Delta, context.Time
+	}
+	controls, firing := controlsOf(context.Input, player.Settings)
+	return controls, firing, context.Delta, context.Time
+}
+
+// show plays the frame's sounds and shows the arena, the radar and the figures.
+func (pilot *Pilot) show(context *engine.Context) {
 	state := pilot.played.Game
 	events := state.TakeEvents()
 	pilot.sound.Hear(events, state)
 	flying := state.Welcomed && state.Alive
 	pilot.sound.RunEngine(flying, math.Abs(state.Own.Speed)/math.Max(state.Settings.MaxSpeed, 1))
 	pilot.world.Show(state, events, &pilot.view, context.Delta, context.Time)
-	pilot.radar.show(state, context.Time)
-	pilot.placeCamera(context)
+	pilot.radar.show(state, context.Time, pilot.zoom, player.Settings.FlatRadar)
+	look(context, pilot.view)
+	delay := 0.0
+	if state.SnapshotAt > 0 {
+		delay = context.Time - state.SnapshotAt
+	}
+	pilot.figures.AddFrame(figures.Frame{Seconds: context.Delta, Players: len(state.Remotes) + 1, SnapshotDelay: delay})
 }
 
-// choosePaused moves the pause menu's choice and acts on it; it tells whether the match was left.
-func (pilot *Pilot) choosePaused(context *engine.Context) bool {
-	keys := context.Input
-	if keys.Pressed(engine.KeyUp) || keys.Pressed(engine.KeyDown) {
-		pilot.resume = !pilot.resume
-		playSound(func(sound *soundSet) { sound.Play(sound.Move, 1) })
+// leave ends the match and goes back to the ships.
+func (pilot *Pilot) leave(context *engine.Context) {
+	if pilot.played != nil {
+		pilot.played.Close()
+		pilot.played = nil
 	}
-	if !confirmed(keys) {
-		return false
-	}
-	if pilot.resume {
-		pilot.paused = false
-		playSound(func(sound *soundSet) { sound.Play(sound.Back, 1) })
-		return false
-	}
-	pilot.played.Close()
-	pilot.played = nil
 	pilot.radar.close()
+	saveSettings()
 	playSound(func(sound *soundSet) {
 		sound.Play(sound.Back, 1)
 		sound.RunEngine(false, 0)
 	})
 	context.ChangeScene(shipScene)
-	return true
-}
-
-// paintReadings paints the HUD over the 3D: the 3DS's life bar and the copilot.
-func (pilot *Pilot) paintReadings(drawing *draw2d.List, width, height float32) {
-	if pilot.played == nil {
-		return
-	}
-	// Laid out in the 3DS's pixels, and made larger on a larger screen, so it looks the same.
-	scale := float32(max(1, math.Floor(float64(height)/screenPixelsHigh)))
-	start := len(drawing.Commands)
-	hud.Paint(drawing, pilot.played.Game, pilot.now, width/scale, height/scale)
-	if pilot.paused {
-		pilot.paintPause(drawing, width/scale, height/scale)
-	}
-	pixelart.Scale(drawing, start, scale)
-}
-
-// The pause menu's measures, in pixels.
-const (
-	pauseWidth  = 160
-	pauseHeight = 96
-	pauseRow    = 22
-)
-
-// paintPause draws the pause menu: Resume, and Leave for the ships.
-func (pilot *Pilot) paintPause(drawing *draw2d.List, width, height float32) {
-	area := draw2d.Rect{X: (width - pauseWidth) / 2, Y: (height - pauseHeight) / 2, Width: pauseWidth, Height: pauseHeight}
-	window(drawing, area, "PAUSED")
-	for index, label := range []string{"Resume", "Leave"} {
-		top := area.Y + 32 + float32(index)*pauseRow
-		if (index == 0) == pilot.resume {
-			pixelart.Stepped(drawing, draw2d.Rect{X: area.X + 8, Y: top, Width: area.Width - 16, Height: pauseRow - 4}, 1, colours.chosen)
-			cursor(drawing, area.X+14, top+5, pilot.now)
-		}
-		drawing.Text(label, area.X+32, top+14, pixelart.TextSize, draw2d.Regular, colours.ink)
-	}
-}
-
-// placeCamera puts the scene's main camera where the arena's chase camera is.
-func (pilot *Pilot) placeCamera(context *engine.Context) {
-	camera, found := context.Scene.MainCamera()
-	if !found {
-		return
-	}
-	eye := vectorOf(pilot.view.Position[0], pilot.view.Position[1], pilot.view.Position[2])
-	target := vectorOf(pilot.view.Target[0], pilot.view.Target[1], pilot.view.Target[2])
-	up := vectorOf(pilot.view.Up[0], pilot.view.Up[1], pilot.view.Up[2])
-	camera.Transform.Position = eye
-	camera.Transform.Rotation = space.RotationLookingAt(target.Subtract(eye), up)
 }
 
 func orDefault(value, fallback string) string {

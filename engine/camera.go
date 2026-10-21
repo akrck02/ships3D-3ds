@@ -20,9 +20,20 @@ func aim(camera *engine.Node, view models.Camera) {
 	up := vectorOf(view.Up[0], view.Up[1], view.Up[2])
 	camera.Transform.Position = eye
 	camera.Transform.Rotation = space.RotationLookingAt(target.Subtract(eye), up)
-	if settings, isCamera := camera.Camera(); isCamera && view.FieldOfView > 0 {
-		settings.FieldOfView = view.FieldOfView * degreesPerRadian
+	if settings, isCamera := camera.Camera(); isCamera {
+		settings.FieldOfView = fieldOfView(view) * degreesPerRadian
 	}
+}
+
+// rendererFieldOfView is go-renderer's field of view when a camera leaves it at 0, in radians.
+const rendererFieldOfView = math.Pi / 4
+
+// fieldOfView is how wide a go-renderer camera sees, in radians, as go-renderer reads it.
+func fieldOfView(view models.Camera) float64 {
+	if view.FieldOfView > 0 {
+		return view.FieldOfView
+	}
+	return rendererFieldOfView
 }
 
 func vectorOf(x, y, z float32) space.Vector {

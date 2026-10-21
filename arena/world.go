@@ -123,6 +123,7 @@ func NewWorldIn(space *scene.Scene) *World {
 func (world *World) Show(state *game.Game, events []game.Event, view *models.Camera, seconds, now float64) {
 	world.title.Hidden = true
 	world.now = now
+	view.FieldOfView = chase.FieldOfView // the title sees narrower, through the same view
 	if !state.Welcomed {
 		view.Position, view.Target, view.Up = graphics.Vec4{0, 20, -60, 1}, graphics.Vec4{0, 0, 0, 1}, graphics.Vec4{0, 1, 0, 0}
 		return

@@ -20,22 +20,28 @@ type radarScreen struct {
 	dish    *arena.Radar
 	scanner *radar.Scanner
 	blips   map[string]radar.Blip
+	shown   bool // on the second screen: not while the flat map is chosen
 }
 
 // openRadar builds the radar's scene and puts it on the second screen.
 func openRadar() *radarScreen {
 	bottom, camera := secondScreenScene(arena.RadarView)
-	shown := &radarScreen{scene: bottom, camera: camera, dish: arena.NewRadarIn(bottom.World()), scanner: radar.NewScanner(), blips: map[string]radar.Blip{}}
+	shown := &radarScreen{scene: bottom, camera: camera, dish: arena.NewRadarIn(bottom.World()), scanner: radar.NewScanner(), blips: map[string]radar.Blip{}, shown: true}
 	engine.SetSecondScreen(bottom)
 	return shown
 }
 
-// show turns the sweep and lets it see the ships it passes over.
-func (shown *radarScreen) show(state *game.Game, now float64) {
+// show turns the sweep and lets it see the ships it passes over, as far as the zoom (an index in
+// radar.Ranges) reaches; the 3D dish shows unless the flat map is chosen.
+func (shown *radarScreen) show(state *game.Game, now float64, zoom int, flat bool) {
+	if flat == shown.shown {
+		shown.shown = !flat
+		shown.putOnScreen()
+	}
 	clear(shown.blips)
 	for id, remote := range state.Remotes {
 		if !remote.Player.Dead {
-			shown.blips[id] = radar.Place(remote.Shown.Position, state.Own.Position, state.Own.Rotation, radar.Ranges[radar.DefaultRange])
+			shown.blips[id] = radar.Place(remote.Shown.Position, state.Own.Position, state.Own.Rotation, radar.Ranges[zoom])
 		}
 	}
 	shown.scanner.Update(now, shown.blips)
@@ -43,6 +49,15 @@ func (shown *radarScreen) show(state *game.Game, now float64) {
 	if shown.camera != nil {
 		aim(shown.camera, arena.RadarView)
 	}
+}
+
+// putOnScreen puts the dish on the second screen when it shows, or takes it off.
+func (shown *radarScreen) putOnScreen() {
+	if shown.shown {
+		engine.SetSecondScreen(shown.scene)
+		return
+	}
+	engine.SetSecondScreen(nil)
 }
 
 // close takes the radar off the second screen, as the match ends.

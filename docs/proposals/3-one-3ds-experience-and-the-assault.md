@@ -99,7 +99,7 @@ models (go-renderer's glTF loader, fetched from the server once and kept).
 - [x] T2 — Engine game, title and mode: the bottom screen as the hand-written one's, touch to start · engine/screens.go · R1 R2 · screenshots side by side
 - [x] T3 — Engine game, hangar: the name on top, the turning ship and the arrows below, touch on the arrows · engine/ships.go · R1 R2 · screenshots side by side — the own designs come first, as in the browser (the hand-written program put them last)
 - [x] T4 — Engine game, account as a menu page with the system keyboard · engine/account_nintendo3ds.go · R3 · logged in on Azahar — the pages seen and turned in Azahar; the system keyboard is still to try on a console
-- [ ] T5 — Engine game, arena: the radar with kills, zoom and the menu (pause, settings, figures) on the touch screen · engine/pilot.go · R1 R2 · screenshots; played
+- [x] T5 — Engine game, arena: the radar with kills, zoom and the menu (pause, settings, figures) on the touch screen · engine/pilot.go · R1 R2 · screenshots; played
 - [ ] T6 — The desktop: the touch screen's pages in a window over the top screen's picture · engine/ · R8 · played on Linux
 - [ ] T7 — 60 fps on a New 3DS (the author plays it); then remove `cmd/ships3ds` and update the README and the release · R1 R9 · STATS
 - [ ] T8 — Crashes · game/, match/ · R6 · test: `TestACrashIsReportedOnce`
