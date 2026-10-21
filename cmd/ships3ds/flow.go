@@ -17,6 +17,7 @@ import (
 	"github.com/jonbul/ships3D-3ds/game"
 	"github.com/jonbul/ships3D-3ds/profile"
 	"github.com/jonbul/ships3D-3ds/ship"
+	"github.com/jonbul/ships3D-3ds/touchscreen"
 )
 
 // The way through the game: the title, then entering the remembered server (logging in again
@@ -186,7 +187,7 @@ const shipRowHeight = 56
 
 // pressOnShipScreen goes through the ships with the cross or the circle pad, flies the chosen one
 // with A, and opens the options with START.
-func (session *session) pressOnShipScreen(pressed ctr.Buttons, reading ctr.Reading, input menuInput) {
+func (session *session) pressOnShipScreen(pressed ctr.Buttons, reading ctr.Reading, input touchscreen.Input) {
 	circleX, _ := reading.Circle()
 	side := 0
 	if circleX > circleSide {
@@ -231,7 +232,7 @@ func (session *session) nextShip() {
 func (session *session) toggleMenu() {
 	session.menuOpen = !session.menuOpen
 	if session.menuOpen {
-		session.menu.opened = "" // the menu opens new, on its first page
+		session.menu.Reset() // the menu opens new, on its first page
 		session.sounds.Play(session.sounds.Choose, 1)
 		return
 	}

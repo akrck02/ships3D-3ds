@@ -1,15 +1,12 @@
-//go:build nintendo3ds
-
-package main
+package touchscreen
 
 import (
 	"math"
 	"strconv"
 
-	"github.com/akrck02/go-renderer/ctr"
 	"github.com/akrck02/go-renderer/draw2d"
-	ui "github.com/akrck02/go-ui"
 
+	"github.com/jonbul/ships3D-3ds/game"
 	"github.com/jonbul/ships3D-3ds/radar"
 )
 
@@ -47,21 +44,26 @@ var (
 	mapCircleRadius = float32(1 << 10) // rounding larger than the shape makes a circle
 )
 
-// buildMap fills the touch screen with the map of the ships around ours.
-func (session *session) buildMap(context *ui.Context) {
-	layout := ui.Layout{Width: ui.Fixed(ctr.BottomWidth), Height: ui.Fixed(ctr.BottomHeight)}
-	context.Paint(layout, session.paintMap)
+// Radar is what the touch screen's radar shows: the game, what the sweep has seen, how far it
+// reaches and how it is drawn.
+type Radar struct {
+	State   *game.Game
+	Scanner *radar.Scanner
+	Range   int  // the index of its reach in radar.Ranges
+	Flat    bool // a flat map drawn here; otherwise the 3D radar is drawn under, by a scene of its own
 }
 
-func (session *session) paintMap(area draw2d.Rect, drawing *draw2d.List) {
-	state := session.game
+// PaintRadar draws the radar over area at now seconds: the flat map, when it is flat, and the
+// readings around it either way.
+func PaintRadar(drawing *draw2d.List, area draw2d.Rect, shown Radar, now float64) {
+	state := shown.State
 	radius := min(area.Width, area.Height)/2 - mapMargin
 	centreX, centreY := area.X+area.Width/2, area.Y+area.Height/2
 	circle := func(x, y, size float32, fill, border draw2d.Color, borderWidth float32) {
 		drawing.Rectangle(draw2d.Rect{X: x - size/2, Y: y - size/2, Width: size, Height: size}, mapCircleRadius, fill, border, borderWidth)
 	}
-	if !session.profile.Settings.FlatRadar {
-		session.paintReadings(area, drawing) // the 3D radar is drawn under, by the radar scene
+	if !shown.Flat {
+		paintReadings(drawing, area, shown, now) // the 3D radar is drawn under, by the radar scene
 		return
 	}
 	circle(centreX, centreY, radius*2, mapTransparent, mapRing, ringWidth)
@@ -74,14 +76,14 @@ func (session *session) paintMap(area draw2d.Rect, drawing *draw2d.List) {
 		y = centreY - float32(blip.Ahead)*radius
 		return x, y, y - float32(blip.Above)*radius*heightShare
 	}
-	session.paintSweep(drawing, centreX, centreY, radius)
-	for _, echo := range session.scanner.Echoes {
+	paintSweep(drawing, centreX, centreY, radius, now)
+	for _, echo := range shown.Scanner.Echoes {
 		x, y, top := toScreen(echo.Blip)
 		colour := mapEnemy
 		if !echo.Blip.InRange {
 			colour = mapEnemyFar
 		}
-		colour[3] *= float32(echo.Brightness(session.now))
+		colour[3] *= float32(echo.Brightness(now))
 		// A stalk from the map's plane up (or down) to the ship, as in the browser: above and
 		// below read at a glance.
 		drawing.Rectangle(draw2d.Rect{X: x - stalkWidth/2, Y: min(y, top), Width: stalkWidth, Height: abs(top - y)}, 0, colour, mapTransparent, 0)
@@ -90,19 +92,19 @@ func (session *session) paintMap(area draw2d.Rect, drawing *draw2d.List) {
 	if state.Alive {
 		circle(centreX, centreY, ownMarkerSize, mapOwn, mapTransparent, 0)
 	}
-	session.paintReadings(area, drawing)
+	paintReadings(drawing, area, shown, now)
 }
 
 // paintReadings draws what both radars show around the dish: the speed, a hit's flash, life,
 // score, the range and how to open the options.
-func (session *session) paintReadings(area draw2d.Rect, drawing *draw2d.List) {
-	state := session.game
-	distance := radar.Ranges[session.mapRange]
-	session.paintSpeed(drawing, area, state.Own.Speed, state.Settings.MinSpeed, state.Settings.MaxSpeed)
-	if session.now-state.HitAt < hitFlashSeconds && state.HitAt > 0 {
+func paintReadings(drawing *draw2d.List, area draw2d.Rect, shown Radar, now float64) {
+	state := shown.State
+	distance := radar.Ranges[shown.Range]
+	paintSpeed(drawing, area, state.Own.Speed, state.Settings.MinSpeed, state.Settings.MaxSpeed)
+	if now-state.HitAt < hitFlashSeconds && state.HitAt > 0 {
 		// Hit: the screen's edge flashes red, fading.
 		flash := mapHit
-		flash[3] *= float32(1 - (session.now-state.HitAt)/hitFlashSeconds)
+		flash[3] *= float32(1 - (now-state.HitAt)/hitFlashSeconds)
 		drawing.Rectangle(area, 0, mapTransparent, flash, hitFlashWidth)
 	}
 
@@ -110,7 +112,7 @@ func (session *session) paintReadings(area draw2d.Rect, drawing *draw2d.List) {
 		strconv.Itoa(state.Player.Kills) + " kills, " + strconv.Itoa(state.Player.Deaths) + " deaths",
 	}
 	if !state.Alive {
-		lines = append(lines, session.respawnLine())
+		lines = append(lines, respawnLine(state, now))
 	}
 	for index, line := range lines {
 		drawing.Text(line, area.X+labelMargin, area.Y+labelMargin+labelSize+float32(index)*labelLineSpacing, labelSize, draw2d.Regular, mapLabel)
@@ -125,9 +127,9 @@ func (session *session) paintReadings(area draw2d.Rect, drawing *draw2d.List) {
 
 // paintSweep draws the radar's turning line as a row of dots, since the draw list has no lines,
 // with a fainter one just behind it.
-func (session *session) paintSweep(drawing *draw2d.List, centreX, centreY, radius float32) {
+func paintSweep(drawing *draw2d.List, centreX, centreY, radius float32, now float64) {
 	for trail, brightness := range sweepTrail {
-		angle := radar.Angle(session.now) - float64(trail)*sweepTrailRadians
+		angle := radar.Angle(now) - float64(trail)*sweepTrailRadians
 		right, ahead := float32(math.Sin(angle)), float32(math.Cos(angle))
 		colour := mapSweep
 		colour[3] *= brightness
@@ -140,7 +142,7 @@ func (session *session) paintSweep(drawing *draw2d.List, centreX, centreY, radiu
 
 // paintSpeed draws the speed as a bar up the right edge: empty at the slowest reverse, full at
 // the fastest, with a mark where the ship stands still.
-func (session *session) paintSpeed(drawing *draw2d.List, area draw2d.Rect, speed, slowest, fastest float64) {
+func paintSpeed(drawing *draw2d.List, area draw2d.Rect, speed, slowest, fastest float64) {
 	if fastest <= slowest {
 		return
 	}
@@ -156,16 +158,9 @@ func (session *session) paintSpeed(drawing *draw2d.List, area draw2d.Rect, speed
 }
 
 // respawnLine says how long until the player may fly again, then how.
-func (session *session) respawnLine() string {
-	if session.game.CanRespawn(session.now) {
+func respawnLine(state *game.Game, now float64) string {
+	if state.CanRespawn(now) {
 		return "Destroyed: A to fly again"
 	}
-	return "Destroyed: back in " + strconv.Itoa(int(math.Ceil(session.game.RespawnIn(session.now)))) + " s"
-}
-
-func abs(value float32) float32 {
-	if value < 0 {
-		return -value
-	}
-	return value
+	return "Destroyed: back in " + strconv.Itoa(int(math.Ceil(state.RespawnIn(now)))) + " s"
 }

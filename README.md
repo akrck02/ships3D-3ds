@@ -74,6 +74,7 @@ the camera draws back, the copilot warns, and if you keep heading out it turns y
 | `chiptune`, `sounds`, `figures`, `profile` | Sounds made in code and played, frame figures, what is remembered |
 | `transport`, `match` | Connections on every platform, and a match on the server frame by frame |
 | `arena`, `hud`, `pixelart` | The space the game is seen in (sky, ships, hangar, radar, effects), the HUD, the pixel-art look |
+| `touchscreen` | The touch screen: the menus and their pages, the radar's readings, the title's prompt, the hangar's arrows |
 | `cmd/ships3ds` | The console's program: screens, menus, the touch screen |
 | `engine` | The go-engine game: its scenes and behaviours |
 

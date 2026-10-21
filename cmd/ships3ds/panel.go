@@ -3,81 +3,91 @@
 package main
 
 import (
-	"math"
-	"sort"
-	"strconv"
-
+	"github.com/akrck02/go-3ds/app"
 	"github.com/akrck02/go-renderer/ctr"
 	"github.com/akrck02/go-renderer/draw2d"
 	ui "github.com/akrck02/go-ui"
 
-	"github.com/jonbul/ships3D-3ds/pixelart"
 	"github.com/jonbul/ships3D-3ds/profile"
-)
-
-// The menu's pages, by title.
-const (
-	pilotPage    = "PILOT"
-	figuresPage  = "STATS"
-	settingsPage = "SETUP"
-	accountPage  = "ACCOUNT"
-	controlsPage = "CONTROLS"
+	"github.com/jonbul/ships3D-3ds/touchscreen"
 )
 
 // figuresPageIndex is where the figures are in the game's menu, which reads the heap's size
 // while they show.
 const figuresPageIndex = 1
 
-// The buttons' hints along the bottom of the windows.
-const (
-	menuHint    = "A OK  B BACK  L/R PAGE"
-	choiceHint  = "A OK  B BACK"
-	waitingHint = "PLEASE WAIT"
-)
-
-// build lays out the touch screen for what it shows now: all of it painted pixel by pixel.
+// build lays out the touch screen for what it shows now (package touchscreen paints it).
 func (session *session) build(context *ui.Context) {
-	layout := ui.Layout{Width: ui.Fixed(ctr.BottomWidth), Height: ui.Fixed(ctr.BottomHeight)}
-	switch {
-	case session.screen == titleScreen && session.confirming == noChange:
-		context.Paint(layout, session.paintTitlePrompt)
-	case session.screen == shipScreen && !session.menuOpen && session.confirming == noChange:
-		context.Paint(layout, session.paintShipChoice)
-	case session.screen == gameScreen && session.game.Welcomed && !session.menuOpen:
-		session.buildMap(context)
-	default:
-		context.Paint(layout, func(area draw2d.Rect, drawing *draw2d.List) {
+	layout := ui.Layout{Width: ui.Fixed(touchscreen.Width), Height: ui.Fixed(touchscreen.Height)}
+	context.Paint(layout, func(area draw2d.Rect, drawing *draw2d.List) {
+		switch {
+		case session.screen == titleScreen && session.confirming == noChange:
+			touchscreen.TitlePrompt(drawing, session.measurer, session.now)
+		case session.screen == shipScreen && !session.menuOpen && session.confirming == noChange:
+			touchscreen.ShipChoice(drawing, session.measurer, session.status)
+		case session.screen == gameScreen && session.game.Welcomed && !session.menuOpen:
+			shown := touchscreen.Radar{State: session.game, Scanner: session.scanner, Range: session.mapRange, Flat: session.profile.Settings.FlatRadar}
+			touchscreen.PaintRadar(drawing, area, shown, session.now)
+		default:
 			pages, hint := session.pages()
-			session.paintPages(drawing, pages, hint)
-		})
+			session.menu.Paint(drawing, pages, hint, session.now)
+		}
+	})
+}
+
+// menuInput is what the touch screen's menus read of a frame.
+func menuInput(frame app.Frame) touchscreen.Input {
+	return touchscreen.Input{Pressed: menuButtons(frame.Pressed), TouchX: float32(frame.Reading.TouchX), TouchY: float32(frame.Reading.TouchY)}
+}
+
+// menuButtons are the console's buttons that the menus read, in their own bits.
+func menuButtons(pressed ctr.Buttons) touchscreen.Buttons {
+	pairs := []struct {
+		console ctr.Buttons
+		menu    touchscreen.Buttons
+	}{
+		{ctr.ButtonUp, touchscreen.ButtonUp}, {ctr.ButtonDown, touchscreen.ButtonDown},
+		{ctr.ButtonLeft, touchscreen.ButtonLeft}, {ctr.ButtonRight, touchscreen.ButtonRight},
+		{ctr.ButtonA, touchscreen.ButtonA}, {ctr.ButtonB, touchscreen.ButtonB},
+		{ctr.ButtonL, touchscreen.ButtonL}, {ctr.ButtonR, touchscreen.ButtonR},
+		{ctr.ButtonTouch, touchscreen.ButtonTouch},
 	}
+	var buttons touchscreen.Buttons
+	for _, pair := range pairs {
+		if pressed&pair.console != 0 {
+			buttons |= pair.menu
+		}
+	}
+	return buttons
 }
 
 // pages are the menu's pages shown now, and the hint for its buttons.
-func (session *session) pages() ([]menuPage, string) {
+func (session *session) pages() ([]touchscreen.Page, string) {
 	switch {
 	case session.confirming != noChange:
-		return []menuPage{session.restartWarning()}, choiceHint
+		return []touchscreen.Page{touchscreen.RestartWarning(session.confirm, func() { session.confirming = noChange })}, touchscreen.ChoiceHint
 	case session.screen == enteringScreen:
 		page := session.enteringPage()
 		if session.asking == askEnter {
-			return []menuPage{page}, waitingHint
+			return []touchscreen.Page{page}, touchscreen.WaitingHint
 		}
-		return []menuPage{page}, "A OK"
+		return []touchscreen.Page{page}, "A OK"
 	case session.screen == shipScreen:
-		return []menuPage{session.accountPage(), session.settingsPage(), controlsPageOf()}, menuHint
+		return []touchscreen.Page{session.accountPage(), session.settingsPage(), touchscreen.ControlsPage(touchscreen.ControlLines)}, touchscreen.MenuHint
 	case session.menuOpen:
-		return []menuPage{session.pilotPage(), session.figuresPage(), session.settingsPage(), session.accountPage()}, menuHint
+		return []touchscreen.Page{session.pilotPage(), session.figuresPage(), session.settingsPage(), session.accountPage()}, touchscreen.MenuHint
 	}
-	return []menuPage{session.joiningPage()}, "B SHIPS"
+	return []touchscreen.Page{session.joiningPage()}, "B SHIPS"
 }
 
-// pressPages acts on the menu shown now; B closes it, or answers no.
-func (session *session) pressPages(input menuInput) {
+// pressPages acts on the menu shown now, with its sounds; B closes it, or answers no.
+func (session *session) pressPages(input touchscreen.Input) {
 	pages, _ := session.pages()
-	input.closes = session.confirming != noChange || session.menuOpen || session.screen == gameScreen
-	input.turnsPages = session.menuOpen && session.confirming == noChange
-	if !session.pressMenu(pages, input) {
+	input.Closes = session.confirming != noChange || session.menuOpen || session.screen == gameScreen
+	input.TurnsPages = session.menuOpen && session.confirming == noChange
+	sound, closed := session.menu.Press(pages, input, session.now)
+	session.playMenuSound(sound)
+	if !closed {
 		return
 	}
 	switch {
@@ -90,18 +100,22 @@ func (session *session) pressPages(input menuInput) {
 	}
 }
 
-// statusRows are the connection's status and the server's complaint, wrapped to the window.
-func (session *session) statusRows() []menuRow {
-	rows := []menuRow{}
-	for _, text := range []string{session.status, session.problem()} {
-		if text == "" {
-			continue
-		}
-		for _, line := range wrapped(text, labelCharacters) {
-			rows = append(rows, menuRow{label: line, colour: pixel.soft})
-		}
+// playMenuSound plays the sound a menu asked for.
+func (session *session) playMenuSound(sound touchscreen.Sound) {
+	played := session.sounds
+	switch sound {
+	case touchscreen.Moved:
+		played.Play(played.Move, 1)
+	case touchscreen.Chose:
+		played.Play(played.Choose, 1)
+	case touchscreen.Went:
+		played.Play(played.Back, 1)
 	}
-	return rows
+}
+
+// statusRows are the connection's status and the server's complaint, wrapped to the window.
+func (session *session) statusRows() []touchscreen.Row {
+	return touchscreen.StatusRows(session.status, session.problem())
 }
 
 func (session *session) problem() string {
@@ -111,203 +125,71 @@ func (session *session) problem() string {
 	return "Server: " + session.game.Problem
 }
 
-// restartWarning asks before a change of server or account, which starts the game again.
-func (session *session) restartWarning() menuPage {
-	return menuPage{title: restartPage, small: true, rows: []menuRow{
-		{label: "You will leave the game"},
-		{label: "and connect again."},
-		{},
-		{label: "Restart", colour: pixel.danger, activate: session.confirm},
-		{label: "Cancel", activate: func() { session.confirming = noChange }},
-	}}
-}
-
 // enteringPage says the server is being reached, or why it couldn't be, with a way out.
-func (session *session) enteringPage() menuPage {
+func (session *session) enteringPage() touchscreen.Page {
 	rows := session.statusRows()
 	if session.asking != askEnter {
-		rows = append(rows, menuRow{},
-			menuRow{label: "Try again", activate: session.enter},
-			menuRow{label: "Server and account", activate: func() {
+		rows = append(rows, touchscreen.Row{},
+			touchscreen.Row{Label: "Try again", Activate: session.enter},
+			touchscreen.Row{Label: "Server and account", Activate: func() {
 				session.menuOpen, session.screen = true, shipScreen
-				session.menu.opened = "" // the menu opens new, on its first page: the account
+				session.menu.Reset() // the menu opens new, on its first page: the account
 			}})
 	}
-	return menuPage{title: connectingPage, small: true, rows: rows}
+	return touchscreen.Page{Title: touchscreen.ConnectingTitle, Small: true, Rows: rows}
 }
 
 // joiningPage shows while the game's connection is made, before the server's welcome.
-func (session *session) joiningPage() menuPage {
-	return menuPage{title: joiningPage, small: true, rows: append(session.statusRows(), menuRow{},
-		menuRow{label: "Back to the ships", activate: func() { session.leave("") }})}
+func (session *session) joiningPage() touchscreen.Page {
+	rows := append(session.statusRows(), touchscreen.Row{},
+		touchscreen.Row{Label: "Back to the ships", Activate: func() { session.leave("") }})
+	return touchscreen.Page{Title: touchscreen.JoiningTitle, Small: true, Rows: rows}
 }
 
-// pilotPage is the game's own page: life and score, the way back, and the others' scores.
-func (session *session) pilotPage() menuPage {
-	state := session.game
-	rows := []menuRow{
-		{label: "Life", value: strconv.Itoa(int(state.Player.Life)) + " / " + strconv.Itoa(int(state.Settings.MaxLife))},
-		{label: "Kills / deaths", value: strconv.Itoa(state.Player.Kills) + " / " + strconv.Itoa(state.Player.Deaths)},
-		{label: "Resume", activate: func() { session.menuOpen = false }},
-		{label: "Choose another ship", activate: func() { session.leave("") }},
-		{label: "Quit the game", colour: pixel.danger, activate: func() { session.quitting = true }},
-	}
-	if len(state.Remotes) > 0 {
-		rows = append(rows, menuRow{label: "OTHER PILOTS", colour: pixel.gold})
-	}
-	return menuPage{title: pilotPage, rows: append(rows, session.remoteRows()...)}
-}
-
-// remoteRows are the other players' scores, best first.
-func (session *session) remoteRows() []menuRow {
-	type score struct {
-		name          string
-		kills, deaths int
-	}
-	scores := []score{}
-	for _, remote := range session.game.Remotes {
-		scores = append(scores, score{remote.Player.Name, remote.Player.Kills, remote.Player.Deaths})
-	}
-	sort.Slice(scores, func(first, second int) bool { return scores[first].kills > scores[second].kills })
-	rows := make([]menuRow, 0, len(scores))
-	for _, entry := range scores {
-		rows = append(rows, menuRow{label: fitted(entry.name, 20), value: strconv.Itoa(entry.kills) + " / " + strconv.Itoa(entry.deaths)})
-	}
-	return rows
+// pilotPage is the game's own page: life and score, the ways out, and the others' scores.
+func (session *session) pilotPage() touchscreen.Page {
+	return touchscreen.PilotPage(session.game, touchscreen.Pilot{
+		Resume:     func() { session.menuOpen = false },
+		ChooseShip: func() { session.leave("") },
+		Quit:       func() { session.quitting = true },
+	})
 }
 
 // settingsPage offers how the ship flies, the radar shows and the game sounds; each change is
-// remembered.
-func (session *session) settingsPage() menuPage {
-	settings := session.profile.Settings
-	change := func(apply func(settings *profile.Settings)) func(int) {
-		return func(step int) {
-			changed := session.profile.Settings
-			apply(&changed)
-			session.rememberLater(func(remembered *profile.Profile) { remembered.Settings = changed })
-			session.applyVolumes()
-		}
+// remembered once the menu closes.
+func (session *session) settingsPage() touchscreen.Page {
+	change := func(apply func(settings *profile.Settings)) {
+		changed := session.profile.Settings
+		apply(&changed)
+		session.rememberLater(func(remembered *profile.Profile) { remembered.Settings = changed })
+		session.applyVolumes()
 	}
-	stepped := func(value *float32, step int) {
-		*value = float32(min(max(math.Round(float64(*value*levelSteps))+float64(step), 0), levelSteps)) / levelSteps
-	}
-	level := func(value float32) int { return int(value*levelSteps + 0.5) }
-	return menuPage{title: settingsPage, rows: []menuRow{
-		{label: "Up raises the nose", isSwitch: true, on: settings.InvertPitch, adjust: change(func(settings *profile.Settings) { settings.InvertPitch = !settings.InvertPitch })},
-		{label: "Radar", value: radarName(settings.FlatRadar), adjust: change(func(settings *profile.Settings) { settings.FlatRadar = !settings.FlatRadar })},
-		{label: "Steer by tilting", isSwitch: true, on: settings.Gyroscope, adjust: change(func(settings *profile.Settings) {
-			settings.Gyroscope = !settings.Gyroscope
-			session.tilt.Centre() // from where the console is held now
-		})},
-		{label: "Fine aim", hasLevel: true, level: level(settings.Precision), adjust: func(step int) {
-			change(func(settings *profile.Settings) { stepped(&settings.Precision, step) })(step)
-		}},
-		{label: "Effects", hasLevel: true, level: level(settings.Effects), adjust: func(step int) {
-			change(func(settings *profile.Settings) { stepped(&settings.Effects, step) })(step)
-		}},
-		{label: "Music", hasLevel: true, level: level(settings.Music), adjust: func(step int) {
-			change(func(settings *profile.Settings) { stepped(&settings.Music, step) })(step)
-		}},
-		{},
-		{label: "Fine aim: the circle pad softer"},
-		{label: "near its centre. L centres the tilt."},
-	}, valueLeft: 186}
-}
-
-func radarName(flat bool) string {
-	if flat {
-		return "FLAT"
-	}
-	return "3D"
+	return touchscreen.SettingsPage(session.profile.Settings, change, session.tilt.Centre)
 }
 
 // accountPage shows the server and the account, each with its change, which restarts the game.
-func (session *session) accountPage() menuPage {
-	rows := []menuRow{
-		{label: "SERVER", colour: pixel.gold},
-		{label: fitted(session.profile.Server, labelCharacters-2)},
-		{label: "Change server", activate: func() { session.ask(changeServer) }},
-		{label: "ACCOUNT", colour: pixel.gold},
-	}
+func (session *session) accountPage() touchscreen.Page {
+	return touchscreen.AccountPage(touchscreen.Account{
+		Server:       session.profile.Server,
+		Username:     session.accountName(),
+		ChangeServer: func() { session.ask(changeServer) },
+		LogIn:        func() { session.ask(changeLogin) },
+		LogOut:       func() { session.ask(changeLogout) },
+		Status:       session.statusRows(),
+	})
+}
+
+// accountName is the logged in player's name, or nothing for a guest.
+func (session *session) accountName() string {
 	if session.account.Token == "" {
-		rows = append(rows, menuRow{label: "Guest"}, menuRow{label: "Log in", activate: func() { session.ask(changeLogin) }})
-	} else {
-		rows = append(rows, menuRow{label: fitted(session.account.Username, labelCharacters-2)},
-			menuRow{label: "Log out", activate: func() { session.ask(changeLogout) }})
+		return ""
 	}
-	return menuPage{title: accountPage, rows: append(rows, session.statusRows()...)}
+	return session.account.Username
 }
 
-// controlsPageOf lists the controls in two columns.
-func controlsPageOf() menuPage {
-	rows := make([]menuRow, 0, len(controlLines))
-	for _, line := range controlLines {
-		rows = append(rows, menuRow{label: line[0], value: line[1], colour: pixel.gold})
-	}
-	return menuPage{title: controlsPage, rows: rows, valueLeft: controlNameWidth + textLeft}
-}
-
-// The title screen's prompt: it blinks, as arcade screens did, at blinksPerSecond.
-const (
-	blinksPerSecond  = 1.5
-	promptShowsShare = 0.65 // of each blink
-	promptY          = 124
-)
-
-// paintTitlePrompt draws the title screen's touch screen clean: the night, its stars and a
-// blinking prompt; the name is on the top screen.
-func (session *session) paintTitlePrompt(area draw2d.Rect, drawing *draw2d.List) {
-	starfield(drawing, session.now)
-	if pixelart.Shown(session.now, blinksPerSecond, promptShowsShare) {
-		session.centredText(drawing, "TOUCH OR PRESS A", promptY, labelPixels, draw2d.Mono, pixel.ink)
-	}
-}
-
-// The ship screen's measures, in pixels.
-const (
-	shipArrowY      = (ctr.BottomHeight - 2*shipArrowWidth) / 2
-	shipArrowWidth  = 8
-	shipArrowMargin = 12
-	textShadowDrop  = 2
-)
-
-// paintShipChoice draws over the hangar only the arrows the cross turns, at its sides, and a
-// problem, if any, at the bottom: the name and which ship of how many are on the top screen.
-func (session *session) paintShipChoice(area draw2d.Rect, drawing *draw2d.List) {
-	arrow(drawing, shipArrowMargin, shipArrowY, -1)
-	arrow(drawing, ctr.BottomWidth-shipArrowMargin-shipArrowWidth, shipArrowY, 1)
-	if session.status != "" {
-		session.shadowedText(drawing, fitted(session.status, labelCharacters), ctr.BottomHeight-10, pixelTextSize, draw2d.Regular, pixel.danger)
-	}
-}
-
-// shadowedText draws a centred line with a hard shadow a pixel below and right, so that it reads
-// over the hangar's lights.
-func (session *session) shadowedText(drawing *draw2d.List, text string, y, size float32, weight draw2d.Weight, colour draw2d.Color) {
-	x := (ctr.BottomWidth - session.textWidth(text, size, weight)) / 2
-	drawing.Text(text, x+textShadowDrop, y+textShadowDrop, size, weight, pixel.shadow)
-	drawing.Text(text, x, y, size, weight, colour)
-}
-
-// arrow draws a pixel triangle pointing left (-1) or right (1), shipArrowWidth wide.
-func arrow(drawing *draw2d.List, x, y float32, direction int) {
-	const height = 2*shipArrowWidth - 1
-	for row := range height {
-		width := float32(shipArrowWidth - int(abs(float32(row-shipArrowWidth+1))))
-		left := x
-		if direction < 0 {
-			left = x + shipArrowWidth - width
-		}
-		drawing.Rectangle(draw2d.Rect{X: left + textShadowDrop, Y: y + float32(row) + textShadowDrop, Width: width, Height: 1}, 0, pixel.shadow, draw2d.Color{}, 0)
-		drawing.Rectangle(draw2d.Rect{X: left, Y: y + float32(row), Width: width, Height: 1}, 0, pixel.goldLight, draw2d.Color{}, 0)
-	}
-}
-
-// centredText draws a line in the middle of the screen's width, its baseline at y.
-func (session *session) centredText(drawing *draw2d.List, text string, y, size float32, weight draw2d.Weight, colour draw2d.Color) {
-	drawing.Text(text, (ctr.BottomWidth-session.textWidth(text, size, weight))/2, y, size, weight, colour)
-}
-
-func (session *session) textWidth(text string, size float32, weight draw2d.Weight) float32 {
-	return session.measurer.MeasureText(text, size, weight, 1).Width
+// figuresPage shows how the game runs: the frame, the drawing, the network and the tilt.
+func (session *session) figuresPage() touchscreen.Page {
+	gyroscope := session.gyroscope
+	motion := touchscreen.Motion{Roll: gyroscope.Roll, Pitch: gyroscope.Pitch, Yaw: gyroscope.Yaw, TiltPitch: session.tilt.Pitch, TiltSteering: session.tilt.Steer}
+	return touchscreen.FiguresPage(session.figures.Shown, float64(session.game.Settings.TickRate), motion)
 }

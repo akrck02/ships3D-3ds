@@ -52,21 +52,3 @@ func controlsOf(frame app.Frame, choices profile.Settings, tilted tilt.Tilt) fli
 func tiltOf(tilted *tilt.Tilt, frame app.Frame) {
 	tilted.Turn(-frame.Gyroscope.Roll, frame.Gyroscope.Pitch, frame.Seconds)
 }
-
-// controlLines are what each control does, for the Controls tab.
-var controlLines = [][2]string{
-	{"Circle pad", "Down raises the nose; turn"},
-	{"R or A", "Fire; A flies again after dying"},
-	{"C-stick", "Roll, faster and slower"},
-	{"Left / Right", "Roll"},
-	{"ZR / ZL", "Faster / slower (also X / B)"},
-	{"Tilting", "Nose and turn, if on in Setup"},
-	{"L", "Centre the tilt"},
-	{"Left / Right", "Ship to fly, on the ship screen"},
-	{"Up / Down", "Radar zoom"},
-	{"3D slider", "Depth"},
-	{"START", "Options"},
-}
-
-// controlNameWidth is the first column, in pixels.
-const controlNameWidth = 92

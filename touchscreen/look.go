@@ -1,19 +1,26 @@
-//go:build nintendo3ds
-
-package main
+// Package touchscreen is Ships 3D's touch screen, as the 3DS shows it: windows drawn pixel by
+// pixel as handheld games drew theirs, floating over a blue night with stars; the menu's pages
+// as tabs along their top and a little star for a cursor; the radar's readings; the title's
+// prompt and the hangar's arrows. It draws into a draw list (draw2d), in the touch screen's
+// pixels (Width × Height), so any program can show it: on the console's bottom screen, or in a
+// window on a computer.
+package touchscreen
 
 import (
 	"math"
 
-	"github.com/akrck02/go-renderer/ctr"
 	"github.com/akrck02/go-renderer/draw2d"
 
 	"github.com/jonbul/ships3D-3ds/pixelart"
 )
 
-// The touch screen's windows, drawn pixel by pixel as handheld games drew theirs: pale windows
-// with corners cut in steps and a hard shadow, floating over a blue night with stars, the pages
-// as tabs along the top and a little star for a cursor. Sizes are in pixels.
+// Width and Height are the touch screen's, in pixels: the 3DS's bottom screen.
+const (
+	Width  = 320
+	Height = 240
+)
+
+// The windows' measures, in pixels.
 const (
 	cornerSteps   = 3
 	frameWidth    = 3
@@ -35,17 +42,17 @@ const (
 	labelPixels   = pixelart.LabelSize
 )
 
-// pixel is the windows' palette, "a blue moon": windows of night-blue glass with a pale blue
-// edge, the stars and the nebula showing through, pale ink, and a sky blue (gold, the
-// accent) for what is chosen.
-var pixel = struct {
-	screen, window, tab, frame, shadow, ink, soft, gold, goldLight, chosen, glow, danger, good, star draw2d.Color
+// Colours is the windows' palette, "a blue moon": windows of night-blue glass with a pale blue
+// edge, the stars and the nebula showing through, pale ink, and a sky blue (Gold, the accent)
+// for what is chosen.
+var Colours = struct {
+	Screen, Window, Tab, Frame, Shadow, Ink, Soft, Gold, GoldLight, Chosen, Glow, Danger, Good, Star draw2d.Color
 }{
-	screen: draw2d.Hex("#0a1430"), window: draw2d.Hex("#0e1c4290"), tab: draw2d.Hex("#24406e"),
-	frame: draw2d.Hex("#9cc8f2"), shadow: draw2d.Hex("#02060fb0"), ink: draw2d.Hex("#eaf4ff"),
-	soft: draw2d.Hex("#9fb6d6"), gold: draw2d.Hex("#5fb0ff"), goldLight: draw2d.Hex("#cfe6ff"),
-	chosen: draw2d.Hex("#2a4a80"), glow: draw2d.Hex("#9cc8f233"), danger: draw2d.Hex("#ff7088"),
-	good: draw2d.Hex("#5fb0ff"), star: draw2d.Hex("#eaf4ff"),
+	Screen: draw2d.Hex("#0a1430"), Window: draw2d.Hex("#0e1c4290"), Tab: draw2d.Hex("#24406e"),
+	Frame: draw2d.Hex("#9cc8f2"), Shadow: draw2d.Hex("#02060fb0"), Ink: draw2d.Hex("#eaf4ff"),
+	Soft: draw2d.Hex("#9fb6d6"), Gold: draw2d.Hex("#5fb0ff"), GoldLight: draw2d.Hex("#cfe6ff"),
+	Chosen: draw2d.Hex("#2a4a80"), Glow: draw2d.Hex("#9cc8f233"), Danger: draw2d.Hex("#ff7088"),
+	Good: draw2d.Hex("#5fb0ff"), Star: draw2d.Hex("#eaf4ff"),
 }
 
 // The nebula and the moon behind the menus: soft clouds of colour and a crescent, in pixels.
@@ -70,23 +77,23 @@ var (
 	moonCrater = draw2d.Hex("#c3d2ea")
 )
 
-// fullScreen is the touch screen's area.
-var fullScreen = draw2d.Rect{Width: ctr.BottomWidth, Height: ctr.BottomHeight}
+// FullScreen is the touch screen's area.
+var FullScreen = draw2d.Rect{Width: Width, Height: Height}
 
 // window draws a window over area: a hard shadow, a white edge and the pale inside.
 func window(drawing *draw2d.List, area draw2d.Rect) {
 	shadow := area
 	shadow.X, shadow.Y = shadow.X+shadowDrop, shadow.Y+shadowDrop
-	pixelart.Stepped(drawing, shadow, cornerSteps, pixel.shadow)
-	pixelart.Stepped(drawing, area, cornerSteps, pixel.frame)
-	pixelart.Stepped(drawing, pixelart.Inset(area, frameWidth), cornerSteps, pixel.window)
+	pixelart.Stepped(drawing, shadow, cornerSteps, Colours.Shadow)
+	pixelart.Stepped(drawing, area, cornerSteps, Colours.Frame)
+	pixelart.Stepped(drawing, pixelart.Inset(area, frameWidth), cornerSteps, Colours.Window)
 }
 
 // tab draws one page's tab: its icon, and its name too when it is open, in the accent.
 func tab(drawing *draw2d.List, area draw2d.Rect, name string, open bool) {
-	fill, ink, light := pixel.tab, pixel.soft, pixel.goldLight
+	fill, ink, light := Colours.Tab, Colours.Soft, Colours.GoldLight
 	if open {
-		fill, ink, light = pixel.gold, pixel.screen, pixel.frame
+		fill, ink, light = Colours.Gold, Colours.Screen, Colours.Frame
 	}
 	pixelart.Stepped(drawing, area, 1, fill)
 	x := area.X + tabPadding
@@ -125,7 +132,7 @@ const (
 // cursor draws the little star beside the chosen row, bobbing to and fro.
 func cursor(drawing *draw2d.List, x, y float32, now float64) {
 	bob := float32(math.Round(cursorBob * math.Sin(now*cursorBobSpeed*2*math.Pi)))
-	bitmap(drawing, cursorStar, x+bob, y, pixel.gold, pixel.goldLight)
+	bitmap(drawing, cursorStar, x+bob, y, Colours.Gold, Colours.GoldLight)
 }
 
 // The light that sweeps along the chosen row: its width in pixels and its passes a second.
@@ -147,7 +154,7 @@ func shine(drawing *draw2d.List, band draw2d.Rect, now float64) {
 			continue
 		}
 		strength := 1 - abs(float32(index)-(sweepBlocks-1)/2.0)/(sweepBlocks/2.0)
-		colour := pixel.glow
+		colour := Colours.Glow
 		colour[3] *= strength
 		drawing.Rectangle(draw2d.Rect{X: left, Y: band.Y, Width: right - left, Height: band.Height}, 0, colour, draw2d.Color{}, 0)
 	}
@@ -155,10 +162,10 @@ func shine(drawing *draw2d.List, band draw2d.Rect, now float64) {
 
 // hints draws the buttons' hints along the bottom of area, in the figures' face.
 func hints(drawing *draw2d.List, area draw2d.Rect, text string) {
-	drawing.Text(text, area.X+12, area.Y+area.Height-8, labelPixels, draw2d.Mono, pixel.soft)
+	drawing.Text(text, area.X+12, area.Y+area.Height-8, labelPixels, draw2d.Mono, Colours.Soft)
 }
 
-// pixelText draws a line of text; value colours it.
+// pixelText draws a line of text with its top at top.
 func pixelText(drawing *draw2d.List, text string, x, top float32, colour draw2d.Color) {
 	drawing.Text(text, x, top+pixelTextSize-3, pixelTextSize, draw2d.Regular, colour)
 }
@@ -172,10 +179,10 @@ const (
 	menuStarTwinkling = 3 // radians a second of a star's twinkle
 )
 
-// starfield fills the screen with the night: a nebula, a crescent moon and stars drifting
-// left, the near ones faster.
-func starfield(drawing *draw2d.List, now float64) {
-	drawing.Rectangle(fullScreen, 0, pixel.screen, draw2d.Color{}, 0)
+// Starfield fills the screen with the night: a nebula, a crescent moon and stars drifting left,
+// the near ones faster.
+func Starfield(drawing *draw2d.List, now float64) {
+	drawing.Rectangle(FullScreen, 0, Colours.Screen, draw2d.Color{}, 0)
 	for _, cloud := range nebula {
 		for ring := float32(1); ring >= 0.2; ring -= 0.2 {
 			size := cloud.size * ring
@@ -187,38 +194,43 @@ func starfield(drawing *draw2d.List, now float64) {
 		drawing.Rectangle(draw2d.Rect{X: moonX + crater.X, Y: moonY + crater.Y, Width: crater.Width, Height: crater.Height}, crater.Height/2, moonCrater, draw2d.Color{}, 0)
 	}
 	shade := draw2d.Rect{X: moonX - moonShadowShift, Y: moonY - moonShadowShift/2, Width: moonSize, Height: moonSize}
-	drawing.Rectangle(shade, moonSize/2, pixel.screen, draw2d.Color{}, 0) // the dark side cuts a crescent
+	drawing.Rectangle(shade, moonSize/2, Colours.Screen, draw2d.Color{}, 0) // the dark side cuts a crescent
 	for index := range menuStarCount {
-		layer := index % menuStarLayers
-		depth := float32(menuStarLayers-layer) / menuStarLayers // 1 is the nearest
-		seed := uint32(index)*2654435761 + 12345
-		baseX := float32(seed%ctr.BottomWidth) - float32(now)*menuStarSpeed*depth
-		x := float32(math.Mod(float64(baseX), ctr.BottomWidth))
-		if x < 0 {
-			x += ctr.BottomWidth
-		}
-		y := float32((seed / ctr.BottomWidth) % ctr.BottomHeight)
-		colour := pixel.star
-		colour[3] = depth * float32(0.55+0.45*math.Sin(now*menuStarTwinkling+float64(index)))
-		size := float32(1)
-		if layer == 0 && index%4 == 0 {
-			size = 2
-		}
-		drawing.Rectangle(draw2d.Rect{X: x, Y: y, Width: size, Height: size}, 0, colour, draw2d.Color{}, 0)
+		paintStar(drawing, index, now)
 	}
+}
+
+// paintStar draws one of the starfield's stars where it has drifted to by now.
+func paintStar(drawing *draw2d.List, index int, now float64) {
+	layer := index % menuStarLayers
+	depth := float32(menuStarLayers-layer) / menuStarLayers // 1 is the nearest
+	seed := uint32(index)*2654435761 + 12345
+	baseX := float32(seed%Width) - float32(now)*menuStarSpeed*depth
+	x := float32(math.Mod(float64(baseX), Width))
+	if x < 0 {
+		x += Width
+	}
+	y := float32((seed / Width) % Height)
+	colour := Colours.Star
+	colour[3] = depth * float32(0.55+0.45*math.Sin(now*menuStarTwinkling+float64(index)))
+	size := float32(1)
+	if layer == 0 && index%4 == 0 {
+		size = 2
+	}
+	drawing.Rectangle(draw2d.Rect{X: x, Y: y, Width: size, Height: size}, 0, colour, draw2d.Color{}, 0)
 }
 
 // pixelSwitch draws an on / off switch: a round track with the knob to its side, blue when on.
 func pixelSwitch(drawing *draw2d.List, x, top float32, on bool) {
 	const width, height, knob = 26, 12, 10
 	y := top + (rowHeight-2-height)/2
-	track, knobX, label := pixel.tab, x+1, "OFF"
+	track, knobX, label := Colours.Tab, x+1, "OFF"
 	if on {
-		track, knobX, label = pixel.good, x+width-knob-1, "ON"
+		track, knobX, label = Colours.Good, x+width-knob-1, "ON"
 	}
 	drawing.Rectangle(draw2d.Rect{X: x, Y: y, Width: width, Height: height}, height/2, track, draw2d.Color{}, 0)
-	drawing.Rectangle(draw2d.Rect{X: knobX, Y: y + 1, Width: knob, Height: height - 2}, knob/2, pixel.frame, draw2d.Color{}, 0)
-	drawing.Text(label, x+width+8, y+height-2, labelPixels, draw2d.Mono, pixel.soft)
+	drawing.Rectangle(draw2d.Rect{X: knobX, Y: y + 1, Width: knob, Height: height - 2}, knob/2, Colours.Frame, draw2d.Color{}, 0)
+	drawing.Text(label, x+width+8, y+height-2, labelPixels, draw2d.Mono, Colours.Soft)
 }
 
 // energyBar draws a level as round cells, lit to the level.
@@ -226,10 +238,17 @@ func energyBar(drawing *draw2d.List, x, top float32, level, steps int) {
 	const width, gap, height = 7, 2, 10
 	y := top + (rowHeight-2-height)/2
 	for cell := range steps {
-		colour := pixel.tab
+		colour := Colours.Tab
 		if cell < level {
-			colour = pixel.gold
+			colour = Colours.Gold
 		}
 		drawing.Rectangle(draw2d.Rect{X: x + float32(cell*(width+gap)), Y: y, Width: width, Height: height}, width/2, colour, draw2d.Color{}, 0)
 	}
+}
+
+func abs(value float32) float32 {
+	if value < 0 {
+		return -value
+	}
+	return value
 }

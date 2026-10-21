@@ -1,13 +1,11 @@
-//go:build nintendo3ds
-
-package main
+package touchscreen
 
 import "github.com/akrck02/go-renderer/draw2d"
 
 // pageIcons are the menu's pages' icons on their tabs, 12 × 12 pixels: '#' the tab's ink, '+'
 // lighter.
 var pageIcons = map[string][]string{
-	pilotPage: {
+	PilotTitle: {
 		"....####....",
 		"..########..",
 		".##++++++##.",
@@ -21,7 +19,7 @@ var pageIcons = map[string][]string{
 		"..##....##..",
 		"............",
 	},
-	figuresPage: {
+	FiguresTitle: {
 		"............",
 		"..........##",
 		"..........##",
@@ -35,7 +33,7 @@ var pageIcons = map[string][]string{
 		"............",
 		"............",
 	},
-	settingsPage: {
+	SettingsTitle: {
 		".....##.....",
 		"..#.####.#..",
 		".##########.",
@@ -49,7 +47,7 @@ var pageIcons = map[string][]string{
 		".....##.....",
 		"............",
 	},
-	accountPage: {
+	AccountTitle: {
 		"....####....",
 		"...######...",
 		"...##++##...",
@@ -63,7 +61,7 @@ var pageIcons = map[string][]string{
 		"............",
 		"............",
 	},
-	controlsPage: {
+	ControlsTitle: {
 		"............",
 		"............",
 		"..########..",
@@ -90,11 +88,20 @@ var cursorStar = []string{
 	"...#...",
 }
 
+// The menu's pages' titles, by which their icons go by.
+const (
+	PilotTitle    = "PILOT"
+	FiguresTitle  = "STATS"
+	SettingsTitle = "SETUP"
+	AccountTitle  = "ACCOUNT"
+	ControlsTitle = "CONTROLS"
+)
+
 // The titles of the windows that are not the menu's pages.
 const (
-	connectingPage = "CONNECTING"
-	restartPage    = "RESTART?"
-	joiningPage    = "JOINING"
+	ConnectingTitle = "CONNECTING"
+	RestartTitle    = "RESTART?"
+	JoiningTitle    = "JOINING"
 )
 
 // bitmap draws a picture drawn by hand in text with its top left at x, y: '#' in main, '+' in light.

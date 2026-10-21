@@ -34,6 +34,7 @@ import (
 	"github.com/jonbul/ships3D-3ds/radar"
 	"github.com/jonbul/ships3D-3ds/sounds"
 	"github.com/jonbul/ships3D-3ds/tilt"
+	"github.com/jonbul/ships3D-3ds/touchscreen"
 	"github.com/jonbul/ships3D-3ds/transport"
 )
 
@@ -135,11 +136,11 @@ type session struct {
 	ship       int          // index in ships
 	status     string       // what the touch screen says about the connection
 	screen     screen
-	asking     asking // what to do between frames: the keyboard, or a wait for the network
-	confirming change // a change of server or account waiting for "the game will restart"
-	circleSide int    // where the circle pad was last frame on the ship screen: -1, 0 or 1
-	menuOpen   bool   // the options, over the ship screen or the radar
-	menu       menu   // where the cursor is in the touch screen's menus
+	asking     asking           // what to do between frames: the keyboard, or a wait for the network
+	confirming change           // a change of server or account waiting for "the game will restart"
+	circleSide int              // where the circle pad was last frame on the ship screen: -1, 0 or 1
+	menuOpen   bool             // the options, over the ship screen or the radar
+	menu       touchscreen.Menu // where the cursor is in the touch screen's menus
 	measurer   draw2d.Measurer
 	quitting   bool
 	unsaved    bool // settings changed in the menu, saved once it closes
@@ -219,7 +220,7 @@ func (session *session) press(frame app.Frame) bool {
 		}
 		return false
 	}
-	input := menuInput{pressed: pressed, touchX: float32(frame.Reading.TouchX), touchY: float32(frame.Reading.TouchY)}
+	input := menuInput(frame)
 	if session.confirming != noChange {
 		session.pressPages(input)
 		return true
@@ -237,21 +238,21 @@ func (session *session) press(frame app.Frame) bool {
 		session.pressOnShipScreen(pressed, frame.Reading, input)
 		return true
 	}
-	session.pressInGame(input)
+	session.pressInGame(pressed, input)
 	return true
 }
 
 // pressInGame acts on the buttons in the game: START opens and closes the menu, which then takes
 // the buttons; the cross's up and down zoom the radar.
-func (session *session) pressInGame(input menuInput) {
+func (session *session) pressInGame(pressed ctr.Buttons, input touchscreen.Input) {
 	switch {
-	case input.pressed&ctr.ButtonStart != 0:
+	case pressed&ctr.ButtonStart != 0:
 		session.toggleMenu()
 	case session.menuOpen || !session.game.Welcomed:
 		session.pressPages(input)
-	case input.pressed&ctr.ButtonUp != 0:
+	case pressed&ctr.ButtonUp != 0:
 		session.mapRange = max(session.mapRange-1, 0)
-	case input.pressed&ctr.ButtonDown != 0:
+	case pressed&ctr.ButtonDown != 0:
 		session.mapRange = min(session.mapRange+1, len(radar.Ranges)-1)
 	}
 }
@@ -320,7 +321,7 @@ func (session *session) close() {
 // waiting for the screen.
 func (session *session) measure(frame app.Frame, renderer *ctr.SceneRenderer, processor, network time.Duration, now float64) {
 	statistics := renderer.Statistics(processor)
-	if session.menuOpen && session.menu.page == figuresPageIndex && now-session.memoryAt >= memoryEverySeconds {
+	if session.menuOpen && session.menu.Page == figuresPageIndex && now-session.memoryAt >= memoryEverySeconds {
 		// Reading the heap walks it, which takes most of a frame: only while shown, once a second.
 		var memory runtime.MemStats
 		runtime.ReadMemStats(&memory)
