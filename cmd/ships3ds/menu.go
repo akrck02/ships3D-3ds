@@ -5,6 +5,7 @@ package main
 import (
 	"github.com/akrck02/go-renderer/ctr"
 	"github.com/akrck02/go-renderer/draw2d"
+	"github.com/jonbul/ships3D-3ds/pixelart"
 )
 
 // menuRow is one line of a menu page: a choice when it can be activated or adjusted, otherwise a
@@ -230,7 +231,7 @@ func (session *session) touchMenu(pages []menuPage, input menuInput) {
 // pageArea is where a page's window is: the whole screen, or a small window in its middle.
 func pageArea(page menuPage) draw2d.Rect {
 	if !page.small {
-		return inset(fullScreen, fullPageMargin)
+		return pixelart.Inset(fullScreen, fullPageMargin)
 	}
 	height := float32(rowsTop + len(page.rows)*rowHeight + hintsHeight + smallWindowMargin)
 	return draw2d.Rect{X: (ctr.BottomWidth - smallWindowWidth) / 2, Y: (ctr.BottomHeight - height) / 2, Width: smallWindowWidth, Height: height}
@@ -280,7 +281,7 @@ func (session *session) paintPages(drawing *draw2d.List, pages []menuPage, hint 
 func paintRow(drawing *draw2d.List, area draw2d.Rect, page menuPage, row menuRow, top float32, chosen bool, now float64) {
 	if chosen {
 		band := draw2d.Rect{X: area.X + frameWidth + 6, Y: top, Width: area.Width - 2*frameWidth - 12, Height: rowHeight - 2}
-		stepped(drawing, band, 1, pixel.chosen)
+		pixelart.Stepped(drawing, band, 1, pixel.chosen)
 		shine(drawing, band, now)
 		cursor(drawing, area.X+12, top+(rowHeight-2-cursorHeight)/2, now)
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/akrck02/go-engine/engine"
 	"github.com/akrck02/go-engine/space"
+	"github.com/akrck02/go-renderer/draw2d"
 	"github.com/akrck02/go-renderer/models"
 
 	"github.com/jonbul/ships3D-3ds/arena"
@@ -29,6 +30,8 @@ type Pilot struct {
 	played *match.Match
 	view   models.Camera
 	status string
+	// readings is the HUD's drawing, made again every frame (readings*.go).
+	readings draw2d.List
 }
 
 // The real server, and what a guest flies when the scene names nothing.
@@ -75,6 +78,7 @@ func (pilot *Pilot) Update(context *engine.Context) {
 	state := pilot.played.Game
 	pilot.world.Show(state, state.TakeEvents(), &pilot.view, context.Delta, context.Time)
 	pilot.placeCamera(context)
+	showReadings(context.Scene, &pilot.readings, state, context.Time)
 }
 
 // placeCamera puts the scene's main camera where the arena's chase camera is.

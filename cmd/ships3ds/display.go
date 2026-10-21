@@ -10,6 +10,7 @@ import (
 	"github.com/akrck02/go-renderer/models"
 	"github.com/akrck02/go-renderer/opengl/overlay"
 	"github.com/jonbul/ships3D-3ds/arena"
+	"github.com/jonbul/ships3D-3ds/hud"
 )
 
 // display is both screens and what paints them: the top screen's scene and its words, the touch
@@ -75,7 +76,7 @@ func (shown *display) paintTop(session *session, world *arena.World, view models
 	separation := ctr.Slider3D() * arena.EyeSeparation
 	shown.renderer.PaintStereo(world.Scene(), view, separation, arena.FocalDistance)
 	if session.screen == gameScreen && session.game.Welcomed {
-		paintHUD(&shown.readings, session.game, now)
+		hud.Paint(&shown.readings, session.game, now, ctr.ScreenWidth, ctr.ScreenHeight)
 		shown.title.paintOver(shown.screen, &shown.readings, separation > 0)
 	}
 }

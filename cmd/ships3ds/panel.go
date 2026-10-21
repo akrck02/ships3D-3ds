@@ -3,6 +3,7 @@
 package main
 
 import (
+	"github.com/jonbul/ships3D-3ds/pixelart"
 	"math"
 	"sort"
 	"strconv"
@@ -257,7 +258,7 @@ const (
 // blinking prompt; the name is on the top screen.
 func (session *session) paintTitlePrompt(area draw2d.Rect, drawing *draw2d.List) {
 	starfield(drawing, session.now)
-	if shown(session.now, blinksPerSecond, promptShowsShare) {
+	if pixelart.Shown(session.now, blinksPerSecond, promptShowsShare) {
 		session.centredText(drawing, "TOUCH OR PRESS A", promptY, labelPixels, draw2d.Mono, pixel.ink)
 	}
 }

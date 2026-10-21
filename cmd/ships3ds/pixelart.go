@@ -3,6 +3,7 @@
 package main
 
 import (
+	"github.com/jonbul/ships3D-3ds/pixelart"
 	"math"
 
 	"github.com/akrck02/go-renderer/ctr"
@@ -13,7 +14,6 @@ import (
 // with corners cut in steps and a hard shadow, floating over a blue night with stars, the pages
 // as tabs along the top and a little star for a cursor. Sizes are in pixels.
 const (
-	cornerStep    = 2 // each step of a corner's staircase
 	cornerSteps   = 3
 	frameWidth    = 3
 	shadowDrop    = 4
@@ -30,8 +30,8 @@ const (
 	valueLeft     = 196
 	hintsHeight   = 18
 	cursorHeight  = 7
-	pixelTextSize = 16 // VT323
-	labelPixels   = 8  // Silkscreen and Press Start 2P, crisp at multiples of 8
+	pixelTextSize = pixelart.TextSize
+	labelPixels   = pixelart.LabelSize
 )
 
 // pixel is the windows' palette, "a blue moon": windows of night-blue glass with a pale blue
@@ -72,28 +72,13 @@ var (
 // fullScreen is the touch screen's area.
 var fullScreen = draw2d.Rect{Width: ctr.BottomWidth, Height: ctr.BottomHeight}
 
-// stepped fills area with its corners cut in a staircase of steps steps: one rectangle a step,
-// the widest in the middle.
-func stepped(drawing *draw2d.List, area draw2d.Rect, steps int, colour draw2d.Color) {
-	for step := range steps + 1 {
-		inset := float32((steps - step) * cornerStep)
-		height := float32(step * cornerStep)
-		drawing.Rectangle(draw2d.Rect{X: area.X + height, Y: area.Y + inset, Width: area.Width - 2*height, Height: area.Height - 2*inset}, 0, colour, draw2d.Color{}, 0)
-	}
-}
-
-// inset is area shrunk by a margin on every side.
-func inset(area draw2d.Rect, margin float32) draw2d.Rect {
-	return draw2d.Rect{X: area.X + margin, Y: area.Y + margin, Width: area.Width - 2*margin, Height: area.Height - 2*margin}
-}
-
 // window draws a window over area: a hard shadow, a white edge and the pale inside.
 func window(drawing *draw2d.List, area draw2d.Rect) {
 	shadow := area
 	shadow.X, shadow.Y = shadow.X+shadowDrop, shadow.Y+shadowDrop
-	stepped(drawing, shadow, cornerSteps, pixel.shadow)
-	stepped(drawing, area, cornerSteps, pixel.frame)
-	stepped(drawing, inset(area, frameWidth), cornerSteps, pixel.window)
+	pixelart.Stepped(drawing, shadow, cornerSteps, pixel.shadow)
+	pixelart.Stepped(drawing, area, cornerSteps, pixel.frame)
+	pixelart.Stepped(drawing, pixelart.Inset(area, frameWidth), cornerSteps, pixel.window)
 }
 
 // tab draws one page's tab: its icon, and its name too when it is open, in the accent.
@@ -102,7 +87,7 @@ func tab(drawing *draw2d.List, area draw2d.Rect, name string, open bool) {
 	if open {
 		fill, ink, light = pixel.gold, pixel.screen, pixel.frame
 	}
-	stepped(drawing, area, 1, fill)
+	pixelart.Stepped(drawing, area, 1, fill)
 	x := area.X + tabPadding
 	if icon, found := pageIcons[name]; found {
 		bitmap(drawing, icon, x, area.Y+(area.Height-iconSize)/2, ink, light)
@@ -128,12 +113,6 @@ func tabWidth(name string, open bool) float32 {
 		}
 	}
 	return width
-}
-
-// shown tells whether something that blinks blinksASecond times a second shows at now: it shows
-// for the share onShare of each blink.
-func shown(now, blinksASecond, onShare float64) bool {
-	return math.Mod(now*blinksASecond, 1) < onShare
 }
 
 // The cursor's bobbing: how far, in pixels, and how fast, in turns a second.

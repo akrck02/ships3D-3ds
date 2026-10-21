@@ -1,11 +1,12 @@
-//go:build nintendo3ds
-
-package main
+// Package hud draws the game's readings over the 3D view, as the 3DS shows them on its top
+// screen: life as a capsule of charges with a heart at the top left, and the copilot's box at the
+// bottom when it has something to say. Any client paints them in a draw2d list over its view.
+package hud
 
 import (
+	"github.com/jonbul/ships3D-3ds/pixelart"
 	"math"
 
-	"github.com/akrck02/go-renderer/ctr"
 	"github.com/akrck02/go-renderer/draw2d"
 
 	"github.com/jonbul/ships3D-3ds/game"
@@ -95,15 +96,16 @@ var hudColours = struct {
 	ink: draw2d.Hex("#eaf4ff"), shadow: draw2d.Hex("#02060fa0"), shine: draw2d.Hex("#ffffff70"),
 }
 
-// paintHUD lays the readings out in drawing for this frame, which it empties first.
-func paintHUD(drawing *draw2d.List, state *game.Game, now float64) {
+// Paint lays the readings out in drawing for this frame, which it empties first, over a view of
+// width × height pixels.
+func Paint(drawing *draw2d.List, state *game.Game, now float64, width, height float32) {
 	drawing.Reset()
 	paintLife(drawing, state.Player.Life, state.Settings.MaxLife, now)
 	switch {
 	case state.Returning:
-		paintCopilot(drawing, copilotTurningBack, now)
+		paintCopilot(drawing, copilotTurningBack, now, width, height)
 	case state.EdgeNearness() >= copilotWarnShare:
-		paintCopilot(drawing, copilotEdgeWarning, now)
+		paintCopilot(drawing, copilotEdgeWarning, now, width, height)
 	}
 }
 
@@ -125,14 +127,14 @@ func paintLife(drawing *draw2d.List, life, most, now float64) {
 	frame := draw2d.Rect{X: lifeLeft, Y: lifeTop, Width: width, Height: lifeSegmentHeight + 8}
 	shadow := frame
 	shadow.X, shadow.Y = shadow.X+hudShadowDrop, shadow.Y+hudShadowDrop
-	stepped(drawing, shadow, 2, hudColours.shadow)
-	stepped(drawing, frame, 2, hudColours.edge)
-	stepped(drawing, inset(frame, 2), 2, hudColours.box)
+	pixelart.Stepped(drawing, shadow, 2, hudColours.shadow)
+	pixelart.Stepped(drawing, frame, 2, hudColours.edge)
+	pixelart.Stepped(drawing, pixelart.Inset(frame, 2), 2, hudColours.box)
 	heartSize := float32(2)
-	if low && shown(now, lifeBeatsASecond, heartBeatShare) {
+	if low && pixelart.Shown(now, lifeBeatsASecond, heartBeatShare) {
 		heartSize = 2.4
 	}
-	paintedBitmap(drawing, lifeHeart, frame.X+7, frame.Y+(frame.Height-6*heartSize)/2, heartSize, heartPalette)
+	pixelart.PaintedBitmap(drawing, lifeHeart, frame.X+7, frame.Y+(frame.Height-6*heartSize)/2, heartSize, heartPalette)
 	left := frame.X + lifeHeartRoom
 	top := frame.Y + 4
 	for segment := range segments {
@@ -159,16 +161,16 @@ func mixColours(first, second draw2d.Color, share float32) draw2d.Color {
 }
 
 // paintCopilot draws the copilot's face and words in a box along the bottom; the words blink.
-func paintCopilot(drawing *draw2d.List, words string, now float64) {
-	box := draw2d.Rect{X: copilotMargin, Y: ctr.ScreenHeight - copilotMargin - copilotHeight, Width: ctr.ScreenWidth - 2*copilotMargin, Height: copilotHeight}
+func paintCopilot(drawing *draw2d.List, words string, now float64, width, height float32) {
+	box := draw2d.Rect{X: copilotMargin, Y: height - copilotMargin - copilotHeight, Width: width - 2*copilotMargin, Height: copilotHeight}
 	shadow := box
 	shadow.X, shadow.Y = shadow.X+hudShadowDrop, shadow.Y+hudShadowDrop
-	stepped(drawing, shadow, 2, hudColours.shadow)
-	stepped(drawing, box, 2, hudColours.edge)
-	stepped(drawing, inset(box, 2), 2, hudColours.box)
+	pixelart.Stepped(drawing, shadow, 2, hudColours.shadow)
+	pixelart.Stepped(drawing, box, 2, hudColours.edge)
+	pixelart.Stepped(drawing, pixelart.Inset(box, 2), 2, hudColours.box)
 	faceTop := box.Y + (copilotHeight-float32(len(copilotFace))*copilotPixel)/2
-	paintedBitmap(drawing, copilotFace, box.X+copilotFaceLeft, faceTop, copilotPixel, copilotPalette)
-	if shown(now, copilotBlinks, copilotWordsShare) {
-		drawing.Text(words, box.X+copilotWordsLeft, box.Y+copilotHeight/2+5, pixelTextSize, draw2d.Regular, hudColours.ink)
+	pixelart.PaintedBitmap(drawing, copilotFace, box.X+copilotFaceLeft, faceTop, copilotPixel, copilotPalette)
+	if pixelart.Shown(now, copilotBlinks, copilotWordsShare) {
+		drawing.Text(words, box.X+copilotWordsLeft, box.Y+copilotHeight/2+5, pixelart.TextSize, draw2d.Regular, hudColours.ink)
 	}
 }
