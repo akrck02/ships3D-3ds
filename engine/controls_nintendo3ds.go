@@ -13,14 +13,14 @@ import (
 // B, or the C-stick up and down) for speed, R or A to fire.
 func controlsOf(keys *engine.Input) (flight.Controls, bool) {
 	stickX, stickY := keys.Stick()
-	cStickX, cStickY := keys.CStick()
+	rightStickX, rightStickY := keys.RightStick()
 	controls := flight.Controls{
 		Pitch:    -stickY,
 		Yaw:      stickX,
-		Roll:     keys.Axis(engine.KeyLeft, engine.KeyRight) + cStickX,
-		Throttle: keys.Axis(engine.ButtonZL, engine.ButtonZR) + keys.Axis(engine.KeyEscape, engine.KeyX) + cStickY,
+		Roll:     keys.Axis(engine.KeyLeft, engine.KeyRight) + rightStickX,
+		Throttle: keys.Axis(engine.ButtonLeftTrigger, engine.ButtonRightTrigger) + keys.Axis(engine.KeyEscape, engine.KeyX) + rightStickY,
 	}
-	return controls, keys.Down(engine.ButtonR) || keys.Down(engine.KeySpace)
+	return controls, keys.Down(engine.ButtonRightShoulder) || keys.Down(engine.KeySpace)
 }
 
 // pausePressed tells whether START was pressed this frame: it opens and closes the pause menu, as
