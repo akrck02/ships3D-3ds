@@ -38,6 +38,7 @@ func stage(context *engine.Context) *arena.World {
 	if camera, found := context.Scene.MainCamera(); found {
 		if settings, isCamera := camera.Camera(); isCamera {
 			settings.Near, settings.Far = arena.CameraNear, arena.CameraFar
+			settings.Focus = arena.FocalDistance // the 3D screen's plane, as the hand-written program sets it
 		}
 	}
 	return world
