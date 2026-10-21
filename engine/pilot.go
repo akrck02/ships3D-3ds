@@ -28,8 +28,6 @@ const screenPixelsHigh = 240
 // Pilot plays a match on the server: it joins with a ship, flies it with the player's keys, and
 // shows the arena (package arena) inside the engine's scene, its camera chasing the ship.
 type Pilot struct {
-	Server string `json:"server"` // address:port, or https://name:port; empty is the real server
-
 	world  *arena.World
 	radar  *radarScreen
 	sound  *soundSet
@@ -51,12 +49,17 @@ const (
 // Start builds the arena in the engine's scene and starts the match.
 func (pilot *Pilot) Start(context *engine.Context) {
 	pilot.world = stage(context)
+	drawInterface(nil)
 	pilot.radar = openRadar()
 	drawOver(pilot.paintReadings)
 	pilot.view = models.Camera{Far: arena.CameraFar, Near: arena.CameraNear, FieldOfView: chase.FieldOfView}
 	pilot.sound = gameSound
-	played, err := match.Start(transport.Dial, orDefault(pilot.Server, realServer), "",
-		orDefault(chosen.shipID, defaultShip), orDefault(chosen.name, guestName), match.Hooks{
+	cookie := ""
+	if player.LoggedIn() {
+		cookie = session().Cookie()
+	}
+	played, err := match.Start(transport.Dial, player.Server, cookie,
+		orDefault(chosen.shipID, defaultShip), playerName(), match.Hooks{
 			Fired: func() { pilot.sound.Play(pilot.sound.Laser, 1) },
 			Received: func(message protocol.Incoming, _ int) {
 				if message.Type == protocol.TypeFire {
@@ -200,4 +203,12 @@ func orDefault(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+// playerName is the logged-in player's name, or a guest's.
+func playerName() string {
+	if player.LoggedIn() {
+		return player.Username
+	}
+	return guestName
 }

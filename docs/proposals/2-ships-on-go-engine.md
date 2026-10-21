@@ -91,13 +91,13 @@ tests, and is a commit on `feature/go-engine`.
 - [x] T3 — the project: `engine/` made with `go-engine new`, its `main.go` registering the game's behaviours, scenes for the title, the mode, the hangar and the arena · R1 · opens in the editor
 - [x] T4 — ships from their designs as nodes (needs the engine's meshes from code) · R4 · test: `a design's node has its parts' triangles`
   - Done without waiting for the engine: the arena (package arena, shared with the 3DS program) builds its nodes inside the engine's own go-renderer scene (`Scene.World()`), ships Moving, as the 3DS program does. The engine's `Node.SetMesh` (proposal 9) can take over once released.
-- [ ] T5 — the arena: joining, flying, firing, hits, deaths and respawns through the existing `game` package · R3 · played against a local server with bots
-- [ ] T6 — the world around: stars, planets, dust, the edge's grid, the force field, the copilot and its autopilot, the crash's effects · R6 · played
-- [ ] T7 — the HUD: the 3DS's life bar, the copilot's box, the pause menu · R5, R6 · played
-- [ ] T8 — the title, the mode and the hangar, as the browser and the 3DS show them · R5 · played on the desktop and the 3DS
+- [x] T5 — the arena: joining, flying, firing, hits, deaths and respawns through the existing `game` package · R3 · played against a local server with bots
+- [x] T6 — the world around: stars, planets, dust, the edge's grid, the force field, the copilot and its autopilot, the crash's effects · R6 · played
+- [x] T7 — the HUD: the 3DS's life bar, the copilot's box, the pause menu · R5, R6 · played
+- [x] T8 — the title, the mode and the hangar, as the browser and the 3DS show them · R5 · played on the desktop and the 3DS
 - [~] T9 — on the 3DS: the radar and the menus on the touch screen, stereoscopic 3D, the gyroscope and the C-stick · R7 · played on a New 3DS
 - [x] T10 — sound: the chiptune effects, music and engine through go-sound · R8 · heard on the desktop and the 3DS
-- [ ] T11 — logging in and choosing the server on the desktop (mouse and keyboard) and the 3DS (its keyboard) · R11 · played
+- [x] T11 — logging in and choosing the server on the desktop (mouse and keyboard) and the 3DS (its keyboard) · R11 · played
 - [ ] T12 — releases with the desktop games and the `.3dsx` and their notices; the README's how to play · R12 · a release
 - [ ] T13 — frame rate on a New 3DS with a dozen players · R10 · numbers written here
 

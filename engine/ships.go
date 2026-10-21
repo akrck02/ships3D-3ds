@@ -7,14 +7,14 @@ import (
 	"github.com/akrck02/go-engine/engine"
 	"github.com/akrck02/go-renderer/draw2d"
 	"github.com/akrck02/go-renderer/scene"
+	ui "github.com/akrck02/go-ui"
 
-	"github.com/jonbul/ships3D-3ds/account"
 	"github.com/jonbul/ships3D-3ds/arena"
 	"github.com/jonbul/ships3D-3ds/flight"
 	"github.com/jonbul/ships3D-3ds/pixelart"
+	"github.com/jonbul/ships3D-3ds/profile"
 	"github.com/jonbul/ships3D-3ds/protocol"
 	"github.com/jonbul/ships3D-3ds/ship"
-	"github.com/jonbul/ships3D-3ds/transport"
 )
 
 // The hangar's turning ship: how big it shows, and how fast it turns, in turns a second.
@@ -29,14 +29,13 @@ const (
 // on a platform floating in space, its name at the top, the arrows (the cross) to go through the
 // player's ships, Enter (A) to launch, Escape (B) back to the modes.
 type Ships struct {
-	Server string `json:"server"` // address:port, or https://name:port; empty is the real server
-
 	world   *arena.World
 	hangar  *arena.Hangar
 	turning *scene.Node
 	ships   []protocol.Ship
 	index   int
 	status  string
+	reload  bool // the server or the account changed: load the ships again
 	now     float64
 }
 
@@ -48,29 +47,33 @@ func (choice *Ships) Start(context *engine.Context) {
 	world.Nodes = append(world.Nodes, choice.hangar.Nodes...)
 	choice.turning = &scene.Node{Name: "chosen ship", Moving: true}
 	world.Nodes = append(world.Nodes, choice.turning)
-	choice.ships, choice.status = fetchShips(orDefault(choice.Server, realServer))
-	for index, offered := range choice.ships {
-		if offered.Id == chosen.shipID {
-			choice.index = index
-		}
-	}
+	choice.load()
+	drawInterface(func(context *ui.Context) { accountForm(context, func() { choice.reload = true }) })
 	drawOver(func(drawing *draw2d.List, width, height float32) {
 		paintScaled(drawing, width, height, choice.paint)
 	})
 }
 
-// fetchShips is the server's ships for a guest, the built-in ones; when the server can't be
-// reached, the Arrow, and why.
-func fetchShips(server string) ([]protocol.Ship, string) {
+// load asks the server for the player's ships and puts the last one flown first.
+func (choice *Ships) load() {
+	choice.ships, choice.status = fetchShips()
+	choice.index = 0
+	for index, offered := range choice.ships {
+		if offered.Id == player.Ship {
+			choice.index = index
+		}
+	}
+}
+
+// fetchShips is the server's ships for the player: their own designs and the built-in ones, or
+// only those for a guest; when the server can't be reached, the Arrow, and why.
+func fetchShips() ([]protocol.Ship, string) {
 	fallback := []protocol.Ship{{Id: defaultShip, Name: "Arrow"}}
-	address, err := account.ParseAddress(server)
+	server, err := api()
 	if err != nil {
 		return fallback, err.Error()
 	}
-	api := account.Server{Host: address.HostPort(), Dial: func() (account.Connection, error) {
-		return transport.Dial(address.Host, address.Port, address.Secure)
-	}}
-	offered, err := api.Ships(account.Session{})
+	offered, err := server.Ships(session())
 	if err != nil || len(offered.Defaults)+len(offered.Own) == 0 {
 		return fallback, "The server's ships didn't load"
 	}
@@ -80,6 +83,10 @@ func fetchShips(server string) ([]protocol.Ship, string) {
 // Update turns the ship, and goes through the ships, on or back.
 func (choice *Ships) Update(context *engine.Context) {
 	choice.now = context.Time
+	if choice.reload {
+		choice.reload = false
+		choice.load()
+	}
 	darkenSky(context.Scene)
 	choice.hangar.Show(context.Time)
 	choice.world.HideTitle()
@@ -93,6 +100,7 @@ func (choice *Ships) Update(context *engine.Context) {
 		choice.turn(1)
 	case confirmed(keys):
 		chosen.shipID = choice.ships[choice.index].Id
+		remember(func(remembered *profile.Profile) { remembered.Ship = chosen.shipID })
 		playSound(func(sound *soundSet) { sound.Play(sound.Choose, 1) })
 		context.ChangeScene(arenaScene)
 	case cancelled(keys):
@@ -131,6 +139,11 @@ func (choice *Ships) paint(drawing *draw2d.List, width, height float32) {
 	middle := height / 2
 	drawing.Text("<", width/2-arrowsFromTheMiddle, middle, headingSize, draw2d.Bold, colours.accent)
 	drawing.Text(">", width/2+arrowsFromTheMiddle-8, middle, headingSize, draw2d.Bold, colours.accent)
+	who := "Guest"
+	if player.LoggedIn() {
+		who = "Playing as " + player.Username
+	}
+	centred(drawing, who, width, 60, pixelart.TextSize, draw2d.Regular, colours.soft)
 	if choice.status != "" {
 		centred(drawing, choice.status, width, height-30, pixelart.TextSize, draw2d.Regular, colours.soft)
 	}

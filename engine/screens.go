@@ -19,10 +19,7 @@ const (
 )
 
 // chosen is what the player has picked, carried from one scene to the next.
-var chosen = struct {
-	shipID string
-	name   string
-}{shipID: defaultShip, name: guestName}
+var chosen = struct{ shipID string }{shipID: defaultShip}
 
 // confirmed tells whether the player said yes this frame: Enter, or Space (the 3DS's A).
 func confirmed(keys *engine.Input) bool {
@@ -68,6 +65,7 @@ type Title struct {
 // Start builds the title's space.
 func (title *Title) Start(context *engine.Context) {
 	title.world = stage(context)
+	drawInterface(nil)
 	drawOver(func(drawing *draw2d.List, width, height float32) {
 		paintScaled(drawing, width, height, title.paint)
 	})
@@ -113,6 +111,7 @@ type Modes struct {
 // Start builds the space behind the window.
 func (choice *Modes) Start(context *engine.Context) {
 	choice.world = stage(context)
+	drawInterface(nil)
 	drawOver(func(drawing *draw2d.List, width, height float32) {
 		paintScaled(drawing, width, height, choice.paint)
 	})
