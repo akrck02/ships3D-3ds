@@ -32,6 +32,7 @@ import (
 	"github.com/jonbul/ships3D-3ds/protocol"
 	"github.com/jonbul/ships3D-3ds/radar"
 	"github.com/jonbul/ships3D-3ds/tilt"
+	"github.com/jonbul/ships3D-3ds/transport"
 	"github.com/jonbul/ships3D-3ds/websocket"
 )
 
@@ -129,7 +130,7 @@ const (
 // session is the game, its connection to the server and what the touch screen shows.
 type session struct {
 	game       *game.Game
-	connection *network.Connection
+	connection transport.Connection
 	client     *websocket.Client
 	joined     bool
 	profile    profile.Profile // what is remembered on the SD card
@@ -171,11 +172,8 @@ func newSession(remembered profile.Profile) *session {
 }
 
 // dial connects to the server, over TLS when it was typed with https://.
-func dial(address account.Address) (*network.Connection, error) {
-	if address.Secure {
-		return network.DialSecure(address.Host, address.Port)
-	}
-	return network.Dial(address.Host, address.Port)
+func dial(address account.Address) (transport.Connection, error) {
+	return transport.Dial(address.Host, address.Port, address.Secure)
 }
 
 // api is the server's HTTP side, for logging in and the list of ships.
