@@ -1,6 +1,6 @@
 # 2. Ships 3D as a go-engine game
 
-> Status: proposed · Author's approval: proposal ☐ plan ☐
+> Status: planned · Author's approval: proposal ☑ plan ☐
 
 ## Why
 
@@ -25,6 +25,8 @@ and on phones for free, and is the first online, 3D, two-screen game to test go-
 | R8 | Sound: chiptune effects, music and the engine's hum, on every platform | Heard on the desktop and the 3DS |
 | R9 | The game's logic is not copied: the engine game uses this repository's plain-Go packages (protocol, game, flight, ship, radar, chase, impact, chiptune, account, profile) | It lives in this repository and imports them; no copies |
 | R10 | 60 frames a second on a New 3DS with a dozen players | STATS on the console |
+| R11 | On the desktop, a player logs in, picks the server and plays with a mouse and keyboard, as in the browser | Played on Linux; builds for Windows and macOS |
+| R12 | Releases carry the desktop game and the `.3dsx`, with their third-party notices | A release with all four files |
 
 ## Out of scope
 
@@ -75,13 +77,27 @@ every screen is code. Rewrite the logic inside the engine's project: duplicates 
 2. What go-engine lacks is asked of the go-engine session.
 3. The experience is the same everywhere: the browser's and the 3DS's, which already match.
 
-Still open: whether the desktop build is for players (the login and server screens designed for a
-mouse and keyboard, and the game released for the desktop as well) or only for working on the game
-in the editor (players keep the browser and the 3DS).
+4. The desktop build is for players too: the login and server screens work with a mouse and a
+   keyboard, and releases carry the desktop game (Linux, Windows, macOS) beside the `.3dsx`.
 
 ## Tasks
 
-To be planned once the proposal is approved.
+Each task leaves both games working (the hand-written `cmd/ships3ds` and `engine/`), with its
+tests, and is a commit on `feature/go-engine`.
+
+- [ ] T1 — ask the go-engine session for what Ships needs (the table above), with why and how it is used; agree on versions · R2 · its answer written here
+- [ ] T2 — a network transport for every platform: go-3ds `network` on the 3DS, Go's `net` and `crypto/tls` elsewhere, behind the interface `websocket` and `web` take · `transport/` · R3 · tests: `a message goes to a test server and back`, over TLS too
+- [ ] T3 — the project: `engine/` made with `go-engine new`, its `main.go` registering the game's behaviours, scenes for the title, the mode, the hangar and the arena · R1 · opens in the editor
+- [ ] T4 — ships from their designs as nodes (needs the engine's meshes from code) · R4 · test: `a design's node has its parts' triangles`
+- [ ] T5 — the arena: joining, flying, firing, hits, deaths and respawns through the existing `game` package · R3 · played against a local server with bots
+- [ ] T6 — the world around: stars, planets, dust, the edge's grid, the force field, the copilot and its autopilot, the crash's effects · R6 · played
+- [ ] T7 — the HUD: the 3DS's life bar, the copilot's box, the pause menu · R5, R6 · played
+- [ ] T8 — the title, the mode and the hangar, as the browser and the 3DS show them · R5 · played on the desktop and the 3DS
+- [ ] T9 — on the 3DS: the radar and the menus on the touch screen, stereoscopic 3D, the gyroscope and the C-stick · R7 · played on a New 3DS
+- [ ] T10 — sound: the chiptune effects, music and engine through go-sound · R8 · heard on the desktop and the 3DS
+- [ ] T11 — logging in and choosing the server on the desktop (mouse and keyboard) and the 3DS (its keyboard) · R11 · played
+- [ ] T12 — releases with the desktop games and the `.3dsx` and their notices; the README's how to play · R12 · a release
+- [ ] T13 — frame rate on a New 3DS with a dozen players · R10 · numbers written here
 
 ## Result
 
