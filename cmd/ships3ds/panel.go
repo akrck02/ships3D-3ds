@@ -3,7 +3,6 @@
 package main
 
 import (
-	"github.com/jonbul/ships3D-3ds/pixelart"
 	"math"
 	"sort"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"github.com/akrck02/go-renderer/draw2d"
 	ui "github.com/akrck02/go-ui"
 
+	"github.com/jonbul/ships3D-3ds/pixelart"
 	"github.com/jonbul/ships3D-3ds/profile"
 )
 

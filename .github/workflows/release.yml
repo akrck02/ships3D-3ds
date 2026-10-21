@@ -44,7 +44,8 @@ jobs:
 
   nintendo3ds:
     runs-on: ubuntu-latest
-    # devkitPro's image has devkitARM and libctru; citro3d and mbedtls come from its packages.
+    # devkitPro's image has devkitARM and the 3DS's libraries (libctru, citro3d, the portlibs'
+    # mbedtls); its package server refuses downloads from CI, so nothing is installed on top.
     container: devkitpro/devkitarm
     env:
       TINYGO_3DS: 0.42.0-3ds.1
@@ -55,8 +56,8 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - name: citro3d and mbedtls
-      run: dkp-pacman -Sy --noconfirm 3ds-dev 3ds-mbedtls
+    - name: The 3DS's libraries are there
+      run: ls /opt/devkitpro/libctru/lib/libctru.a /opt/devkitpro/libctru/lib/libcitro3d.a /opt/devkitpro/portlibs/3ds/lib/libmbedtls.a
 
     - name: TinyGo for the 3DS
       run: |

@@ -3,12 +3,12 @@
 package main
 
 import (
-	"github.com/jonbul/ships3D-3ds/arena"
 	"math"
 
 	"github.com/akrck02/go-renderer/ctr"
 	"github.com/akrck02/go-renderer/scene"
 
+	"github.com/jonbul/ships3D-3ds/arena"
 	"github.com/jonbul/ships3D-3ds/flight"
 )
 

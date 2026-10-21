@@ -3,11 +3,12 @@
 package main
 
 import (
-	"github.com/jonbul/ships3D-3ds/pixelart"
 	"math"
 
 	"github.com/akrck02/go-renderer/ctr"
 	"github.com/akrck02/go-renderer/draw2d"
+
+	"github.com/jonbul/ships3D-3ds/pixelart"
 )
 
 // The touch screen's windows, drawn pixel by pixel as handheld games drew theirs: pale windows

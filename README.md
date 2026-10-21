@@ -2,7 +2,13 @@
 
 A client for the [Ships 3D game server](https://github.com/jonbul/ships3D-api), for the New Nintendo 3DS (homebrew, `.3dsx`): it
 logs in, lists your ships and joins the same games as the browser, over the same websocket and
-HTTPS API. **Status: experiment**, written with an AI assistant and pending review. The plan is in
+HTTPS API. There are two programs, made from the same packages:
+
+- `cmd/ships3ds`, written by hand for the console;
+- `engine/`, the same game as a [go-engine](https://github.com/akrck02/go-engine) project, for
+  the 3DS and the desktop (Linux, Windows, macOS), with scenes editable in go-engine's editor.
+  The plan is in [docs/proposals/2-ships-on-go-engine.md](docs/proposals/2-ships-on-go-engine.md).
+ **Status: experiment**, written with an AI assistant and pending review. The plan is in
 [docs/proposals/1-nintendo-3ds-client.md](docs/proposals/1-nintendo-3ds-client.md).
 
 | Title | Hangar | Game | At the edge |
@@ -13,7 +19,13 @@ HTTPS API. **Status: experiment**, written with an AI assistant and pending revi
 
 ```bash
 tinygo build -target=nintendo3ds -ldflags "-X runtime.heapMegabytes=64" -o ships3ds.3dsx ./cmd/ships3ds
+tinygo build -target=nintendo3ds -ldflags "-X runtime.heapMegabytes=64" -o ships3d-engine.3dsx ./engine
+go build -tags release -o ships3d ./engine   # the desktop game; without -tags release, with go-engine's editor
 ```
+
+Every version tag builds them all on GitHub and puts them on its release
+(`.github/workflows/release.yml`). The desktop game needs OpenGL's, X11's and ALSA's headers on
+Linux (see the workflow).
 
 It needs [TinyGo for 3DS](https://github.com/akrck02/tinygo-3ds) and devkitPro's libraries
 (libctru, citro3d, and mbedtls from the portlibs for TLS). The console's pieces come from Go
@@ -59,7 +71,10 @@ the camera draws back, the copilot warns, and if you keep heading out it turns y
 | `protocol`, `account` | The server's messages, login and the list of ships |
 | `game`, `flight` | The game's state and the same flight model as the server's |
 | `ship`, `radar`, `chase`, `impact`, `tilt` | Ships' meshes, the radar, the camera, crash effects, the gyroscope |
-| `chiptune`, `figures`, `profile` | Sounds made in code, frame figures, what the SD card remembers |
-| `cmd/ships3ds` | The console's program: screens, menus, the hangar, the world |
+| `chiptune`, `sounds`, `figures`, `profile` | Sounds made in code and played, frame figures, what is remembered |
+| `transport`, `match` | Connections on every platform, and a match on the server frame by frame |
+| `arena`, `hud`, `pixelart` | The space the game is seen in (sky, ships, hangar, radar, effects), the HUD, the pixel-art look |
+| `cmd/ships3ds` | The console's program: screens, menus, the touch screen |
+| `engine` | The go-engine game: its scenes and behaviours |
 
-All but `cmd/ships3ds` are plain Go, tested on a computer with `go test ./...` (the CI runs them).
+All but the two programs are plain Go, tested on a computer with `go test ./...` (the CI runs them).

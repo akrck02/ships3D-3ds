@@ -3,11 +3,11 @@
 package main
 
 import (
+	"github.com/akrck02/go-3ds/bottom"
 	"github.com/akrck02/go-renderer/draw2d"
 	ui "github.com/akrck02/go-ui"
-	"github.com/jonbul/ships3D-3ds/pixelart"
 
-	"github.com/akrck02/go-3ds/bottom"
+	"github.com/jonbul/ships3D-3ds/pixelart"
 )
 
 // The game's look on the console: pixel fonts (package pixelart) and square corners, as handheld

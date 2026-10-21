@@ -11,8 +11,6 @@
 package main
 
 import (
-	"github.com/jonbul/ships3D-3ds/arena"
-	"github.com/jonbul/ships3D-3ds/sounds"
 	"math"
 	"runtime"
 	"strconv"
@@ -25,6 +23,7 @@ import (
 	"github.com/akrck02/go-renderer/models"
 
 	"github.com/jonbul/ships3D-3ds/account"
+	"github.com/jonbul/ships3D-3ds/arena"
 	"github.com/jonbul/ships3D-3ds/chase"
 	"github.com/jonbul/ships3D-3ds/figures"
 	"github.com/jonbul/ships3D-3ds/flight"
@@ -33,6 +32,7 @@ import (
 	"github.com/jonbul/ships3D-3ds/profile"
 	"github.com/jonbul/ships3D-3ds/protocol"
 	"github.com/jonbul/ships3D-3ds/radar"
+	"github.com/jonbul/ships3D-3ds/sounds"
 	"github.com/jonbul/ships3D-3ds/tilt"
 	"github.com/jonbul/ships3D-3ds/transport"
 )

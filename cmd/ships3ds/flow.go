@@ -4,7 +4,6 @@ package main
 
 import (
 	"errors"
-	"github.com/jonbul/ships3D-3ds/arena"
 	"math"
 	"strconv"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/akrck02/go-renderer/scene"
 
 	"github.com/jonbul/ships3D-3ds/account"
+	"github.com/jonbul/ships3D-3ds/arena"
 	"github.com/jonbul/ships3D-3ds/game"
 	"github.com/jonbul/ships3D-3ds/profile"
 	"github.com/jonbul/ships3D-3ds/ship"
