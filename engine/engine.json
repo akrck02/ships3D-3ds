@@ -1,4 +1,5 @@
 {
 	"name": "Ships 3D",
-	"startScene": "scenes/title.scene.json"
+	"startScene": "scenes/title.scene.json",
+	"keepStart": true
 }

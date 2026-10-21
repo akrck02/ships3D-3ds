@@ -4,47 +4,25 @@ package main
 
 import (
 	"github.com/akrck02/go-engine/engine"
-	"github.com/akrck02/go-renderer/ctr"
 
 	"github.com/jonbul/ships3D-3ds/flight"
 )
 
-// circleReach is how far the circle pad goes, in its own steps.
-const circleReach = 156
-
 // controlsOf reads the console as the 3DS program does: the circle pad for the nose (down raises
-// it) and the turn, the cross's left and right to roll, ZR and ZL (or X and B) for speed, R or A
-// to fire. go-engine gives a game only some of the buttons as keys, so they are read here.
-func controlsOf(*engine.Input) (flight.Controls, bool) {
-	reading := ctr.ReadControls()
-	held := reading.Held
+// it) and the turn, the cross's left and right (or the C-stick across) to roll, ZR and ZL (X and
+// B, or the C-stick up and down) for speed, R or A to fire.
+func controlsOf(keys *engine.Input) (flight.Controls, bool) {
+	stickX, stickY := keys.Stick()
+	cStickX, cStickY := keys.CStick()
 	controls := flight.Controls{
-		Pitch: -float64(reading.CircleY) / circleReach,
-		Yaw:   float64(reading.CircleX) / circleReach,
+		Pitch:    -stickY,
+		Yaw:      stickX,
+		Roll:     keys.Axis(engine.KeyLeft, engine.KeyRight) + cStickX,
+		Throttle: keys.Axis(engine.ButtonZL, engine.ButtonZR) + keys.Axis(engine.KeyEscape, engine.KeyX) + cStickY,
 	}
-	if held&ctr.ButtonLeft != 0 {
-		controls.Roll--
-	}
-	if held&ctr.ButtonRight != 0 {
-		controls.Roll++
-	}
-	if held&(ctr.ButtonZR|ctr.ButtonX) != 0 {
-		controls.Throttle++
-	}
-	if held&(ctr.ButtonZL|ctr.ButtonB) != 0 {
-		controls.Throttle--
-	}
-	return controls, held&(ctr.ButtonR|ctr.ButtonA) != 0
+	return controls, keys.Down(engine.ButtonR) || keys.Down(engine.KeySpace)
 }
-
-// startWasHeld is whether START was held last frame, to tell when it is pressed.
-var startWasHeld bool
 
 // pausePressed tells whether START was pressed this frame: it opens and closes the pause menu, as
 // in the 3DS program.
-func pausePressed(*engine.Input) bool {
-	held := ctr.ReadControls().Held&ctr.ButtonStart != 0
-	pressed := held && !startWasHeld
-	startWasHeld = held
-	return pressed
-}
+func pausePressed(keys *engine.Input) bool { return keys.Pressed(engine.ButtonStart) }

@@ -78,8 +78,7 @@ func (pilot *Pilot) Update(context *engine.Context) {
 	if pausePressed(context.Input) {
 		pilot.paused, pilot.resume = !pilot.paused, true
 		playSound(func(sound *soundSet) { sound.Play(sound.Choose, 1) })
-	}
-	if pilot.paused && pilot.choosePaused(context) {
+	} else if pilot.paused && pilot.choosePaused(context) {
 		return
 	}
 	controls, firing := controlsOf(context.Input)
