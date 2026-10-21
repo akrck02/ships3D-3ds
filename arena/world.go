@@ -62,18 +62,31 @@ type World struct {
 	title                  *scene.Node // the ship that crosses the title screen, or turns on the ship screen
 	titleMesh              *scene.Mesh // the title's ship
 	dust                   []*scene.Node
+	skyScale               float64 // the sky's size, as a share of SkyRadius; 0 is whole
 }
 
 // Scene is what the world draws: the renderer paints it.
 func (world *World) Scene() *scene.Scene { return world.scene }
+
+// FitSky brings the sky (its stars and planets) inside a camera that sees no farther than far,
+// as a game engine's that can't see as far as SkyRadius.
+func (world *World) FitSky(far float64) {
+	world.skyScale = min(far*skyFitShare/SkyRadius, 1)
+}
+
+// skyFitShare is how far inside the camera's reach the fitted sky lies.
+const skyFitShare = 0.9
 
 // HideTitle hides the title's ship, for screens that show only the still view behind a heading.
 func (world *World) HideTitle() { world.title.Hidden = true }
 
 // NewWorld builds the space the game is seen in: the lit sky, the dust, our ship, the aim cross
 // and the effects, ready for Show to place every frame.
-func NewWorld() *World {
-	space := scene.New()
+func NewWorld() *World { return NewWorldIn(scene.New()) }
+
+// NewWorldIn builds the world inside a scene that already exists, as a game engine's: its
+// nodes are added to the scene's, and its light set.
+func NewWorldIn(space *scene.Scene) *World {
 	LightSpace(&space.Environment)
 	world := &World{scene: space, ships: map[meshKey]*scene.Mesh{}, remotes: map[string]*scene.Node{}}
 	world.sky = skyNode()
@@ -146,6 +159,10 @@ func (world *World) Show(state *game.Game, events []game.Event, view *models.Cam
 func (world *World) placeSpace(state *game.Game) {
 	eye := world.view.Eye
 	world.sky.Transform = graphics.Translate(graphics.Vec4{float32(eye[0]), float32(eye[1]), float32(eye[2]), 0})
+	if world.skyScale > 0 {
+		scale := float32(world.skyScale)
+		world.sky.Transform = world.sky.Transform.Multiply(graphics.Scale(graphics.Vec4{scale, scale, scale, 0}))
+	}
 	dustCellsAround(world.dust, state.Own.Position)
 	if world.edges == nil && state.Settings.WorldRadius > 0 {
 		world.edges = edgeLines(state.Settings.WorldRadius)

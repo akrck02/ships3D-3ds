@@ -88,8 +88,9 @@ tests, and is a commit on `feature/go-engine`.
 - [x] T1 — ask the go-engine session for what Ships needs (the table above), with why and how it is used; agree on versions · R2 · its answer written here
   - Answer (2026-10-21): v0.0.3 has keyboard input (held and pressed, the 3DS's buttons mapped to keys), a camera node behaviours can move (far plane fixed at 2000: a setting is missing) and a go-ui-only bottom screen. Everything else is missing and not planned yet: it needs a go-engine proposal the author approves. The engine's 3DS loop runs on go-ui's window.Run, not go-3ds's app, so whether go-sound gets its turn each frame is still to check. Until there is a plan, the engine's session advises building those parts on go-renderer directly.
 - [x] T2 — a network transport for every platform: go-3ds `network` on the 3DS, Go's `net` and `crypto/tls` elsewhere, behind the interface `websocket` and `web` take · `transport/` · R3 · tests: `a message goes to a test server and back`, over TLS too
-- [ ] T3 — the project: `engine/` made with `go-engine new`, its `main.go` registering the game's behaviours, scenes for the title, the mode, the hangar and the arena · R1 · opens in the editor
-- [ ] T4 — ships from their designs as nodes (needs the engine's meshes from code) · R4 · test: `a design's node has its parts' triangles`
+- [x] T3 — the project: `engine/` made with `go-engine new`, its `main.go` registering the game's behaviours, scenes for the title, the mode, the hangar and the arena · R1 · opens in the editor
+- [x] T4 — ships from their designs as nodes (needs the engine's meshes from code) · R4 · test: `a design's node has its parts' triangles`
+  - Done without waiting for the engine: the arena (package arena, shared with the 3DS program) builds its nodes inside the engine's own go-renderer scene (`Scene.World()`), ships Moving, as the 3DS program does. The engine's `Node.SetMesh` (proposal 9) can take over once released.
 - [ ] T5 — the arena: joining, flying, firing, hits, deaths and respawns through the existing `game` package · R3 · played against a local server with bots
 - [ ] T6 — the world around: stars, planets, dust, the edge's grid, the force field, the copilot and its autopilot, the crash's effects · R6 · played
 - [ ] T7 — the HUD: the 3DS's life bar, the copilot's box, the pause menu · R5, R6 · played
