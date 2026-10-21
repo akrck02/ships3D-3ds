@@ -1,6 +1,4 @@
-//go:build nintendo3ds
-
-package main
+package sounds
 
 import (
 	"time"
@@ -8,33 +6,35 @@ import (
 	sound "github.com/akrck02/go-sound"
 
 	"github.com/jonbul/ships3D-3ds/chiptune"
+	"github.com/jonbul/ships3D-3ds/game"
 )
 
-// The game's sound, through go-sound (the console's DSP): chiptune effects and music worked out in
+// Package sounds is the game's sound, through go-sound (the console's DSP): chiptune effects and music worked out in
 // code (package chiptune). Each effect has a few players taken in turn, so a burst of shots
 // overlaps instead of cutting itself off. On a console without the DSP's firmware
 // (sdmc:/3ds/dspfirm.cdc, dumped once with the DSP1 homebrew) the game plays on in silence.
 const (
 	soundLatency     = 60 * time.Millisecond // short enough for a shot to sound with it
 	playersPerEffect = 4
-	otherShotsVolume = 0.45 // others' shots, quieter than ours
+	OtherShotsVolume = 0.45 // others' shots, quieter than ours
 )
 
-// effect is one sound and its players.
-type effect struct {
+// Effect is one sound and its players.
+type Effect struct {
 	players []*sound.Player
 	next    int
 }
 
-// sounds are the game's effects and music; all of it nil when the console has no sound.
-type sounds struct {
+// Sounds are the game's effects and music; all of it nil when the console has no sound.
+type Sounds struct {
 	context                       *sound.Context
-	laser, hit, explosion, shield *effect
-	move, choose, back            *effect
+	Laser, Hit, Explosion, Shield *Effect
+	Move, Choose, Back            *Effect
 	music                         *sound.Player
 	engine                        *sound.Player
 	engineSound                   *chiptune.Engine
 	effectsVolume, musicVolume    float64
+	edgeHeard                     float64 // the crash into the edge the force field's sound was played for
 }
 
 // stream gives go-sound a chiptune sound or the music.
@@ -53,19 +53,19 @@ func (played stream) Format() sound.Format {
 func (played stream) Read(samples []float32) (int, error) { return played.source.Read(samples) }
 func (played stream) Rewind() error                       { return played.source.Rewind() }
 
-// newSounds opens the console's sound, or returns silent sounds and why there is none.
-func newSounds() (*sounds, error) {
-	all := &sounds{effectsVolume: 1, musicVolume: 1}
+// New opens the console's sound, or returns silent sounds and why there is none.
+func New() (*Sounds, error) {
+	all := &Sounds{effectsVolume: 1, musicVolume: 1}
 	context, err := sound.NewContext(sound.Options{Latency: soundLatency, Name: "Ships 3D"})
 	if err != nil {
 		return all, err
 	}
 	all.context = context
-	for target, make := range map[**effect]func() *chiptune.Sound{
-		&all.laser: chiptune.Laser, &all.hit: chiptune.Hit, &all.explosion: chiptune.Explosion, &all.shield: chiptune.Shield,
-		&all.move: chiptune.Move, &all.choose: chiptune.Choose, &all.back: chiptune.Back,
+	for target, make := range map[**Effect]func() *chiptune.Sound{
+		&all.Laser: chiptune.Laser, &all.Hit: chiptune.Hit, &all.Explosion: chiptune.Explosion, &all.Shield: chiptune.Shield,
+		&all.Move: chiptune.Move, &all.Choose: chiptune.Choose, &all.Back: chiptune.Back,
 	} {
-		played := &effect{}
+		played := &Effect{}
 		made := make()
 		for range playersPerEffect {
 			player, err := context.NewPlayer(stream{made.Copy()})
@@ -90,8 +90,8 @@ func newSounds() (*sounds, error) {
 	return all, nil
 }
 
-// play starts an effect at a share of the effects' volume, on the player whose turn it is.
-func (all *sounds) play(played *effect, volume float64) {
+// Play starts an effect at a share of the effects' volume, on the player whose turn it is.
+func (all *Sounds) Play(played *Effect, volume float64) {
 	if all.context == nil || played == nil {
 		return
 	}
@@ -102,8 +102,8 @@ func (all *sounds) play(played *effect, volume float64) {
 	player.Play()
 }
 
-// playMusic starts the music, looping, or stops it at no volume.
-func (all *sounds) playMusic() {
+// PlayMusic starts the music, looping, or stops it at no volume.
+func (all *Sounds) PlayMusic() {
 	if all.music == nil {
 		return
 	}
@@ -121,8 +121,8 @@ func (all *sounds) playMusic() {
 // engineLevel is the engine's share of the effects' volume: always there, under the shots.
 const engineLevel = 0.8
 
-// runEngine plays the engine at a throttle from 0 to 1 while flying, and stops it otherwise.
-func (all *sounds) runEngine(flying bool, throttle float64) {
+// RunEngine plays the engine at a throttle from 0 to 1 while flying, and stops it otherwise.
+func (all *Sounds) RunEngine(flying bool, throttle float64) {
 	if all.engine == nil {
 		return
 	}
@@ -142,17 +142,34 @@ func (all *sounds) runEngine(flying bool, throttle float64) {
 // musicLevel keeps the music under the effects.
 const musicLevel = 0.55
 
-// setVolumes takes the settings' volumes, from 0 to 1.
-func (all *sounds) setVolumes(effects, music float64) {
+// SetVolumes takes the settings' volumes, from 0 to 1.
+func (all *Sounds) SetVolumes(effects, music float64) {
 	all.effectsVolume, all.musicVolume = effects, music
-	all.playMusic()
+	all.PlayMusic()
 }
 
-// musicSeconds is how much of the music has been heard, for the log: it stops growing when the DSP
+// MusicSeconds is how much of the music has been heard, for the log: it stops growing when the DSP
 // stops being fed.
-func (all *sounds) musicSeconds() float64 {
+func (all *Sounds) MusicSeconds() float64 {
 	if all.music == nil {
 		return 0
 	}
 	return all.music.Position().Seconds()
+}
+
+// Hear plays the sounds of what happened in the game this frame: hits, blasts, and the force
+// field when the ship runs into the world's edge anew.
+func (all *Sounds) Hear(events []game.Event, state *game.Game) {
+	for _, event := range events {
+		switch event.Kind {
+		case game.ShipHit:
+			all.Play(all.Hit, 1)
+		case game.ShipDestroyed:
+			all.Play(all.Explosion, 1)
+		}
+	}
+	if hit := state.EdgeHitAt; hit != 0 && hit != all.edgeHeard {
+		all.edgeHeard = hit
+		all.Play(all.Shield, 1)
+	}
 }

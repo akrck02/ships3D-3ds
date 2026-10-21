@@ -139,7 +139,7 @@ func (session *session) pressMenu(pages []menuPage, input menuInput) (closed boo
 	pressed := input.pressed
 	switch {
 	case pressed&ctr.ButtonB != 0 && input.closes:
-		session.sounds.play(session.sounds.back, 1)
+		session.sounds.Play(session.sounds.Back, 1)
 		return true
 	case pressed&(ctr.ButtonL|ctr.ButtonR) != 0 && input.turnsPages && len(pages) > 1:
 		step := 1
@@ -170,12 +170,12 @@ func (session *session) turnPage(pages []menuPage, step int) {
 	shown := &session.menu
 	shown.page = (shown.page + step + len(pages)) % len(pages)
 	shown.turnTo(pages[shown.page])
-	session.sounds.play(session.sounds.move, 1)
+	session.sounds.Play(session.sounds.Move, 1)
 }
 
 func (session *session) moved(moved bool) {
 	if moved {
-		session.sounds.play(session.sounds.move, 1)
+		session.sounds.Play(session.sounds.Move, 1)
 	}
 }
 
@@ -184,7 +184,7 @@ func (session *session) activate(row menuRow) {
 		session.adjust(row, 1) // a toggle: A flips it as the cross does
 		return
 	}
-	session.sounds.play(session.sounds.choose, 1)
+	session.sounds.Play(session.sounds.Choose, 1)
 	row.activate()
 }
 
@@ -192,7 +192,7 @@ func (session *session) adjust(row menuRow, step int) {
 	if row.adjust == nil {
 		return
 	}
-	session.sounds.play(session.sounds.move, 1)
+	session.sounds.Play(session.sounds.Move, 1)
 	row.adjust(step)
 }
 

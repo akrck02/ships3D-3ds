@@ -120,7 +120,7 @@ func (session *session) betweenFrames() {
 // enter goes from the title to the remembered server: the touch screen says so this frame, and
 // the waiting happens between frames.
 func (session *session) enter() {
-	session.sounds.play(session.sounds.choose, 1)
+	session.sounds.Play(session.sounds.Choose, 1)
 	session.screen, session.asking = enteringScreen, askEnter
 	session.status = "Connecting to " + session.profile.Server + "…"
 }
@@ -219,12 +219,12 @@ func (session *session) pressOnShipScreen(pressed ctr.Buttons, reading ctr.Readi
 
 func (session *session) previousShip() {
 	session.ship = (session.ship + len(session.ships) - 1) % len(session.ships)
-	session.sounds.play(session.sounds.move, 1)
+	session.sounds.Play(session.sounds.Move, 1)
 }
 
 func (session *session) nextShip() {
 	session.ship = (session.ship + 1) % len(session.ships)
-	session.sounds.play(session.sounds.move, 1)
+	session.sounds.Play(session.sounds.Move, 1)
 }
 
 // toggleMenu opens or closes the options, with its sound.
@@ -232,10 +232,10 @@ func (session *session) toggleMenu() {
 	session.menuOpen = !session.menuOpen
 	if session.menuOpen {
 		session.menu.opened = "" // the menu opens new, on its first page
-		session.sounds.play(session.sounds.choose, 1)
+		session.sounds.Play(session.sounds.Choose, 1)
 		return
 	}
-	session.sounds.play(session.sounds.back, 1)
+	session.sounds.Play(session.sounds.Back, 1)
 }
 
 // previewShip is the chosen ship's mesh and the scale that makes it previewRadius big, for the
@@ -382,7 +382,7 @@ func (session *session) keepLog() {
 		session.log.add("figures: " + strconv.Itoa(shown.FramesPerSecond) + " fps, net " + strconv.Itoa(int(shown.NetworkMilliseconds)) +
 			" ms, in " + strconv.Itoa(shown.BytesIn) + " B/s, out " + strconv.Itoa(shown.BytesOut) + " B/s, pending " + strconv.Itoa(pending) +
 			" B, skipped " + strconv.Itoa(skipped) + ", players " + strconv.Itoa(shown.Players) +
-			", music heard " + strconv.Itoa(int(session.sounds.musicSeconds())) + " s")
+			", music heard " + strconv.Itoa(int(session.sounds.MusicSeconds())) + " s")
 	}
 }
 
@@ -399,23 +399,10 @@ func (session *session) deathCaption() string {
 }
 
 // hear plays the sounds of what happened this frame: hits, blasts and the force field.
-func (session *session) hear(events []game.Event) {
-	for _, event := range events {
-		switch event.Kind {
-		case game.ShipHit:
-			session.sounds.play(session.sounds.hit, 1)
-		case game.ShipDestroyed:
-			session.sounds.play(session.sounds.explosion, 1)
-		}
-	}
-	if hit := session.game.EdgeHitAt; hit != 0 && hit != session.edgeHeard {
-		session.edgeHeard = hit
-		session.sounds.play(session.sounds.shield, 1)
-	}
-}
+func (session *session) hear(events []game.Event) { session.sounds.Hear(events, session.game) }
 
 // applyVolumes gives the sound the settings' volumes.
 func (session *session) applyVolumes() {
 	settings := session.profile.Settings
-	session.sounds.setVolumes(float64(settings.Effects), float64(settings.Music))
+	session.sounds.SetVolumes(float64(settings.Effects), float64(settings.Music))
 }

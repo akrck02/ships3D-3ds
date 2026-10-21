@@ -12,6 +12,7 @@ package main
 
 import (
 	"github.com/jonbul/ships3D-3ds/arena"
+	"github.com/jonbul/ships3D-3ds/sounds"
 	"math"
 	"runtime"
 	"strconv"
@@ -73,11 +74,11 @@ func startSession(measurer draw2d.Measurer) *session {
 	session.log = newLogbook()
 	session.log.add("Ships 3D for the 3DS starts; server " + session.profile.Server + ", logged in: " + strconv.FormatBool(session.account.Token != ""))
 	session.log.connectRemote()
-	sounds, err := newSounds()
+	sound, err := sounds.New()
 	if err != nil {
 		session.log.add("no sound: " + err.Error())
 	}
-	session.sounds = sounds
+	session.sounds = sound
 	session.applyVolumes()
 	return session
 }
@@ -96,7 +97,7 @@ func (session *session) playFrame(shown *display, world *arena.World, view *mode
 	session.hear(events)
 	state := session.game
 	flying := session.screen == gameScreen && state.Welcomed && state.Alive
-	session.sounds.runEngine(flying, math.Abs(state.Own.Speed)/math.Max(state.Settings.MaxSpeed, 1))
+	session.sounds.RunEngine(flying, math.Abs(state.Own.Speed)/math.Max(state.Settings.MaxSpeed, 1))
 	world.Show(state, events, view, frame.Seconds, now)
 	switch session.screen {
 	case titleScreen, enteringScreen:
@@ -152,8 +153,7 @@ type session struct {
 	heapBytes  uint64        // the heap's size, read now and then
 	memoryAt   float64       // when it was read, in seconds
 	log        *logbook
-	sounds     *sounds
-	edgeHeard  float64 // the crash the force field's sound was played for
+	sounds     *sounds.Sounds
 	logged     string  // the status last written to the log
 	figuresAt  float64 // when figures were last logged
 }
@@ -186,7 +186,7 @@ func (session *session) connect() {
 	played, err := match.Start(transport.Dial, session.profile.Server, cookie, session.ships[session.ship].id, session.playerName(), match.Hooks{
 		Received: session.heard,
 		Sent:     func(text string) { session.figures.Sent(len(text)) },
-		Fired:    func() { session.sounds.play(session.sounds.laser, 1) },
+		Fired:    func() { session.sounds.Play(session.sounds.Laser, 1) },
 	})
 	if err != nil {
 		session.status = err.Error()
@@ -195,7 +195,7 @@ func (session *session) connect() {
 	session.match, session.game = played, played.Game
 	session.status = "Connecting to " + session.profile.Server + "…"
 	session.screen = gameScreen
-	session.sounds.play(session.sounds.choose, 1)
+	session.sounds.Play(session.sounds.Choose, 1)
 	session.remember(func(remembered *profile.Profile) { remembered.Ship = session.ships[session.ship].id })
 }
 
@@ -206,7 +206,7 @@ func (session *session) heard(message protocol.Incoming, bytes int) {
 		session.log.add("server says: " + message.Message)
 	}
 	if message.Type == protocol.TypeFire {
-		session.sounds.play(session.sounds.laser, otherShotsVolume)
+		session.sounds.Play(session.sounds.Laser, sounds.OtherShotsVolume)
 	}
 }
 
@@ -263,7 +263,7 @@ func (session *session) leave(status string) {
 	session.game, session.menuOpen = game.New(), false
 	session.scanner = radar.NewScanner()
 	session.status, session.screen = status, shipScreen
-	session.sounds.play(session.sounds.back, 1)
+	session.sounds.Play(session.sounds.Back, 1)
 }
 
 // exchange moves the match on with this frame's controls: what the server sent in, our moves out.

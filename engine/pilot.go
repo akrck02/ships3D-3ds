@@ -1,6 +1,8 @@
 package main
 
 import (
+	"math"
+
 	"github.com/akrck02/go-engine/engine"
 	"github.com/akrck02/go-engine/space"
 	"github.com/akrck02/go-renderer/draw2d"
@@ -10,6 +12,8 @@ import (
 	"github.com/jonbul/ships3D-3ds/chase"
 	"github.com/jonbul/ships3D-3ds/flight"
 	"github.com/jonbul/ships3D-3ds/match"
+	"github.com/jonbul/ships3D-3ds/protocol"
+	"github.com/jonbul/ships3D-3ds/sounds"
 	"github.com/jonbul/ships3D-3ds/transport"
 )
 
@@ -19,6 +23,12 @@ const engineFar = 2000
 // spaceAmbient is the light that reaches the ships from all round, with no sky to light them.
 const spaceAmbient = 0.9
 
+// The volumes, from 0 to 1, until the game has its settings.
+const (
+	effectsVolume = 0.8
+	musicVolume   = 0.5
+)
+
 // Pilot plays a match on the server: it joins with a ship, flies it with the player's keys, and
 // shows the arena (package arena) inside the engine's scene, its camera chasing the ship.
 type Pilot struct {
@@ -27,6 +37,7 @@ type Pilot struct {
 	Name   string `json:"name"`   // a guest's name
 
 	world  *arena.World
+	sound  *sounds.Sounds
 	played *match.Match
 	view   models.Camera
 	status string
@@ -52,8 +63,16 @@ func (pilot *Pilot) Start(context *engine.Context) {
 	environment.SkyZenith = environment.SkyHorizon
 	environment.Ambient = spaceAmbient
 	pilot.view = models.Camera{Far: engineFar, Near: arena.CameraNear, FieldOfView: chase.FieldOfView}
+	pilot.startSound()
 	played, err := match.Start(transport.Dial, orDefault(pilot.Server, realServer), "",
-		orDefault(pilot.Ship, defaultShip), orDefault(pilot.Name, guestName), match.Hooks{})
+		orDefault(pilot.Ship, defaultShip), orDefault(pilot.Name, guestName), match.Hooks{
+			Fired: func() { pilot.sound.Play(pilot.sound.Laser, 1) },
+			Received: func(message protocol.Incoming, _ int) {
+				if message.Type == protocol.TypeFire {
+					pilot.sound.Play(pilot.sound.Laser, sounds.OtherShotsVolume)
+				}
+			},
+		})
 	if err != nil {
 		pilot.status = err.Error()
 		println(pilot.status) // the debug log: the arena shows empty
@@ -76,9 +95,23 @@ func (pilot *Pilot) Update(context *engine.Context) {
 		return
 	}
 	state := pilot.played.Game
-	pilot.world.Show(state, state.TakeEvents(), &pilot.view, context.Delta, context.Time)
+	events := state.TakeEvents()
+	pilot.sound.Hear(events, state)
+	flying := state.Welcomed && state.Alive
+	pilot.sound.RunEngine(flying, math.Abs(state.Own.Speed)/math.Max(state.Settings.MaxSpeed, 1))
+	pilot.world.Show(state, events, &pilot.view, context.Delta, context.Time)
 	pilot.placeCamera(context)
 	showReadings(context.Scene, &pilot.readings, state, context.Time)
+}
+
+// startSound opens the sound and starts the music; without it the game plays on in silence.
+func (pilot *Pilot) startSound() {
+	sound, err := sounds.New()
+	if err != nil {
+		println("no sound: " + err.Error()) // the debug log
+	}
+	pilot.sound = sound
+	pilot.sound.SetVolumes(effectsVolume, musicVolume)
 }
 
 // placeCamera puts the scene's main camera where the arena's chase camera is.
