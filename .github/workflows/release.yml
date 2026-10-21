@@ -65,12 +65,13 @@ jobs:
         tar -xzf tinygo.tar.gz
         echo "$PWD/tinygo/bin" >> "$GITHUB_PATH"
 
-    # -buildvcs=false: the container's git doesn't trust the checkout, and the console needs no stamp.
     # runtime.heapMegabytes leaves C its share of the console's memory, for the socket service.
     - name: Build
       run: |
-        tinygo build -buildvcs=false -target=nintendo3ds -ldflags "-X runtime.heapMegabytes=64" -o ships3d-engine.3dsx ./engine
-        tinygo build -buildvcs=false -target=nintendo3ds -ldflags "-X runtime.heapMegabytes=64" -o ships3d.3dsx ./cmd/ships3ds
+        # The container's git doesn't trust a checkout another user owns, and Go stamps builds with it.
+        git config --global --add safe.directory "$PWD"
+        tinygo build -target=nintendo3ds -ldflags "-X runtime.heapMegabytes=64" -o ships3d-engine.3dsx ./engine
+        tinygo build -target=nintendo3ds -ldflags "-X runtime.heapMegabytes=64" -o ships3d.3dsx ./cmd/ships3ds
 
     - uses: actions/upload-artifact@v4
       with:
