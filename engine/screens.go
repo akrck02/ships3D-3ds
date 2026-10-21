@@ -1,10 +1,7 @@
 package main
 
 import (
-	"math"
-
 	"github.com/akrck02/go-engine/engine"
-	"github.com/akrck02/go-engine/space"
 	"github.com/akrck02/go-renderer/draw2d"
 	"github.com/akrck02/go-renderer/models"
 
@@ -37,6 +34,7 @@ func cancelled(keys *engine.Input) bool { return keys.Pressed(engine.KeyEscape) 
 func stage(context *engine.Context) *arena.World {
 	world := arena.NewWorldIn(context.Scene.World())
 	shownBackdrop = backdrop(context)
+	engine.SetSecondScreen(nil) // a screen that shows a scene there (the hangar, the radar) puts it back
 	if camera, found := context.Scene.MainCamera(); found {
 		if settings, isCamera := camera.Camera(); isCamera {
 			settings.Near, settings.Far = arena.CameraNear, arena.CameraFar
@@ -47,22 +45,10 @@ func stage(context *engine.Context) *arena.World {
 
 // look puts the scene's main camera where view is, seeing as wide.
 func look(context *engine.Context, view models.Camera) {
-	camera, found := context.Scene.MainCamera()
-	if !found {
-		return
-	}
-	eye := vectorOf(view.Position[0], view.Position[1], view.Position[2])
-	target := vectorOf(view.Target[0], view.Target[1], view.Target[2])
-	up := vectorOf(view.Up[0], view.Up[1], view.Up[2])
-	camera.Transform.Position = eye
-	camera.Transform.Rotation = space.RotationLookingAt(target.Subtract(eye), up)
-	if settings, isCamera := camera.Camera(); isCamera && view.FieldOfView > 0 {
-		settings.FieldOfView = view.FieldOfView * degreesPerRadian
+	if camera, found := context.Scene.MainCamera(); found {
+		aim(camera, view)
 	}
 }
-
-// degreesPerRadian turns go-renderer's angles into the engine's.
-const degreesPerRadian = 180 / math.Pi
 
 // Title is the first screen, as the 3DS opens: the name large over space, a ship crossing it with
 // a barrel roll, a prompt that blinks.

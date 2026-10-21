@@ -97,7 +97,7 @@ models (go-renderer's glTF loader, fetched from the server once and kept).
 
 - [x] T1 — Move the touch screen into `touchscreen/`; `cmd/ships3ds` uses it unchanged · touchscreen/, cmd/ships3ds · R1 · test: `TestEveryMenuPageHasATitleAndAnIcon`; Azahar screenshots unchanged
 - [x] T2 — Engine game, title and mode: the bottom screen as the hand-written one's, touch to start · engine/screens.go · R1 R2 · screenshots side by side
-- [ ] T3 — Engine game, hangar: the name on top, the turning ship and the arrows below, touch on the arrows · engine/ships.go · R1 R2 · screenshots side by side
+- [x] T3 — Engine game, hangar: the name on top, the turning ship and the arrows below, touch on the arrows · engine/ships.go · R1 R2 · screenshots side by side — the own designs come first, as in the browser (the hand-written program put them last)
 - [ ] T4 — Engine game, account as a menu page with the system keyboard · engine/account_nintendo3ds.go · R3 · logged in on Azahar
 - [ ] T5 — Engine game, arena: the radar with kills, zoom and the menu (pause, settings, figures) on the touch screen · engine/pilot.go · R1 R2 · screenshots; played
 - [ ] T6 — The desktop: the touch screen's pages in a window over the top screen's picture · engine/ · R8 · played on Linux

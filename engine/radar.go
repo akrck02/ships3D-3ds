@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/akrck02/go-engine/engine"
-	"github.com/akrck02/go-engine/scenefile"
 
 	"github.com/jonbul/ships3D-3ds/arena"
 	"github.com/jonbul/ships3D-3ds/game"
@@ -25,15 +24,8 @@ type radarScreen struct {
 
 // openRadar builds the radar's scene and puts it on the second screen.
 func openRadar() *radarScreen {
-	bottom := engine.NewScene(files)
-	shown := &radarScreen{scene: bottom, dish: arena.NewRadarIn(bottom.World()), scanner: radar.NewScanner(), blips: map[string]radar.Blip{}}
-	camera, err := bottom.NewNode(scenefile.Node{Name: "Camera", Camera: &scenefile.Camera{Main: true, FieldOfView: arena.RadarView.FieldOfView * degreesPerRadian, Near: 0.1, Far: 20}})
-	if err != nil {
-		println(err.Error()) // the debug log: the second screen stays empty
-		return shown
-	}
-	bottom.Root.Add(camera)
-	shown.camera = camera
+	bottom, camera := secondScreenScene(arena.RadarView)
+	shown := &radarScreen{scene: bottom, camera: camera, dish: arena.NewRadarIn(bottom.World()), scanner: radar.NewScanner(), blips: map[string]radar.Blip{}}
 	engine.SetSecondScreen(bottom)
 	return shown
 }
@@ -49,11 +41,7 @@ func (shown *radarScreen) show(state *game.Game, now float64) {
 	shown.scanner.Update(now, shown.blips)
 	shown.dish.Show(shown.scanner, now)
 	if shown.camera != nil {
-		view := arena.RadarView
-		eye := vectorOf(view.Position[0], view.Position[1], view.Position[2])
-		target := vectorOf(view.Target[0], view.Target[1], view.Target[2])
-		shown.camera.Transform.Position = eye
-		shown.camera.Transform.LookAt(target)
+		aim(shown.camera, arena.RadarView)
 	}
 }
 

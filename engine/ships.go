@@ -1,38 +1,40 @@
 package main
 
 import (
-	"math"
 	"strconv"
 
 	"github.com/akrck02/go-engine/engine"
 	"github.com/akrck02/go-renderer/draw2d"
+	"github.com/akrck02/go-renderer/models"
 	"github.com/akrck02/go-renderer/scene"
 	ui "github.com/akrck02/go-ui"
 
 	"github.com/jonbul/ships3D-3ds/arena"
-	"github.com/jonbul/ships3D-3ds/flight"
 	"github.com/jonbul/ships3D-3ds/pixelart"
 	"github.com/jonbul/ships3D-3ds/profile"
 	"github.com/jonbul/ships3D-3ds/protocol"
 	"github.com/jonbul/ships3D-3ds/ship"
+	"github.com/jonbul/ships3D-3ds/touchscreen"
 )
 
-// The hangar's turning ship: how big it shows, and how fast it turns, in turns a second.
+// The ship screen's measures.
 const (
-	hangarShipRadius    = 7
-	hangarTurnsASecond  = 0.12
 	shipNameCharacters  = 18
 	arrowsFromTheMiddle = 150
 )
 
-// Ships is choosing the ship in the hangar, as the browser and the 3DS show it: the ship turning
-// on a platform floating in space, its name at the top, the arrows (the cross) to go through the
-// player's ships, Enter (A) to launch, Escape (B) back to the modes.
+// Ships is choosing the ship, as the browser and the 3DS show it: the ship turning on a platform
+// floating in space, the arrows (the cross, the circle pad, or a touch) to go through the
+// player's ships, Enter (A) to launch, Escape (B) back to the modes. On the 3DS the hangar is on
+// the touch screen and the top screen says the ship's name, as the hand-written program does; on
+// the desktop the hangar fills the window.
 type Ships struct {
 	world   *arena.World
-	hangar  *arena.Hangar
+	hangar  *arena.Hangar // on the desktop, in the scene played
+	below   *hangarScreen // on the 3DS, on the touch screen
 	turning *scene.Node
 	ships   []protocol.Ship
+	own     int // how many of the ships, first, are the player's own designs
 	index   int
 	status  string
 	reload  bool // the server or the account changed: load the ships again
@@ -42,21 +44,26 @@ type Ships struct {
 // Start builds the hangar and asks the server for its ships.
 func (choice *Ships) Start(context *engine.Context) {
 	choice.world = stage(context)
+	choice.load()
+	drawOver(func(drawing *draw2d.List, width, height float32) {
+		paintScaled(drawing, width, height, choice.paint)
+	})
+	if hasTouchScreen {
+		choice.below = openHangarScreen()
+		showTouchScreen(func(drawing *draw2d.List) { touchscreen.ShipChoice(drawing, textMeasurer(), choice.status) })
+		return
+	}
 	choice.hangar = arena.NewHangar()
 	world := context.Scene.World()
 	world.Nodes = append(world.Nodes, choice.hangar.Nodes...)
 	choice.turning = &scene.Node{Name: "chosen ship", Moving: true}
 	world.Nodes = append(world.Nodes, choice.turning)
-	choice.load()
 	drawInterface(func(context *ui.Context) { accountForm(context, func() { choice.reload = true }) })
-	drawOver(func(drawing *draw2d.List, width, height float32) {
-		paintScaled(drawing, width, height, choice.paint)
-	})
 }
 
 // load asks the server for the player's ships and puts the last one flown first.
 func (choice *Ships) load() {
-	choice.ships, choice.status = fetchShips()
+	choice.ships, choice.own, choice.status = fetchShips()
 	choice.index = 0
 	for index, offered := range choice.ships {
 		if offered.Id == player.Ship {
@@ -65,19 +72,20 @@ func (choice *Ships) load() {
 	}
 }
 
-// fetchShips is the server's ships for the player: their own designs and the built-in ones, or
-// only those for a guest; when the server can't be reached, the Arrow, and why.
-func fetchShips() ([]protocol.Ship, string) {
+// fetchShips is the server's ships for the player: their own designs first (own is how many),
+// then the built-in ones, or only those for a guest; when the server can't be reached, the
+// Arrow, and why.
+func fetchShips() (ships []protocol.Ship, own int, status string) {
 	fallback := []protocol.Ship{{Id: defaultShip, Name: "Arrow"}}
 	server, err := api()
 	if err != nil {
-		return fallback, err.Error()
+		return fallback, 0, err.Error()
 	}
 	offered, err := server.Ships(session())
 	if err != nil || len(offered.Defaults)+len(offered.Own) == 0 {
-		return fallback, "The server's ships didn't load"
+		return fallback, 0, "The server's ships didn't load"
 	}
-	return append(offered.Own, offered.Defaults...), ""
+	return append(offered.Own, offered.Defaults...), len(offered.Own), ""
 }
 
 // Update turns the ship, and goes through the ships, on or back.
@@ -88,15 +96,40 @@ func (choice *Ships) Update(context *engine.Context) {
 		choice.load()
 	}
 	darkenSky(context.Scene)
+	choice.show(context)
+	choice.press(context, touchInput(context.Input))
+}
+
+// show puts the hangar and the chosen ship where this platform shows them.
+func (choice *Ships) show(context *engine.Context) {
+	offered := choice.ships[choice.index]
+	mesh := choice.world.ShipMesh(offered.Id, offered.Layers, false)
+	radius := ship.Radius(offered.Layers)
+	if choice.below != nil {
+		var view models.Camera
+		choice.world.ShowTitle(context.Time, &view)
+		choice.world.HideTitle() // the ship turns on the touch screen; the top shows its name
+		look(context, view)
+		choice.below.show(mesh, radius, context.Time)
+		return
+	}
 	choice.hangar.Show(context.Time)
 	choice.world.HideTitle()
 	look(context, arena.HangarCamera)
-	choice.showShip(context.Time)
+	turnShip(choice.turning, mesh, radius, context.Time)
+}
+
+// press goes through the ships, launches the chosen one, or goes back to the modes.
+func (choice *Ships) press(context *engine.Context, read touchscreen.Input) {
 	keys := context.Input
+	touchedSide := 0
+	if read.Pressed&touchscreen.ButtonTouch != 0 {
+		touchedSide = touchscreen.ShipArrowTouched(read.TouchX)
+	}
 	switch {
-	case keys.Pressed(engine.KeyLeft):
+	case read.Pressed&touchscreen.ButtonLeft != 0 || touchedSide < 0:
 		choice.turn(-1)
-	case keys.Pressed(engine.KeyRight):
+	case read.Pressed&touchscreen.ButtonRight != 0 || touchedSide > 0:
 		choice.turn(1)
 	case confirmed(keys):
 		chosen.shipID = choice.ships[choice.index].Id
@@ -114,26 +147,22 @@ func (choice *Ships) turn(by int) {
 	playSound(func(sound *soundSet) { sound.Play(sound.Move, 1) })
 }
 
-// showShip puts the chosen ship on the platform, turning.
-func (choice *Ships) showShip(now float64) {
-	offered := choice.ships[choice.index]
-	radius := ship.Radius(offered.Layers)
-	choice.turning.Hidden = radius <= 0
-	if choice.turning.Hidden {
-		return
+// caption says whose the chosen ship is, and which of how many.
+func (choice *Ships) caption() string {
+	whose := "Built-in ship"
+	if choice.index < choice.own {
+		whose = "Your design"
 	}
-	choice.turning.Mesh = choice.world.ShipMesh(offered.Id, offered.Layers, false)
-	turn := flight.FromEulerXYZ(0, now*hangarTurnsASecond*2*math.Pi, 0)
-	choice.turning.Transform = arena.TransformOf(arena.HangarShipPlace, turn, hangarShipRadius/radius)
+	return whose + "   " + strconv.Itoa(choice.index+1) + " / " + strconv.Itoa(len(choice.ships))
 }
 
 func (choice *Ships) paint(drawing *draw2d.List, width, height float32) {
-	offered := choice.ships[choice.index]
-	name := []rune(offered.Name)
-	if len(name) > shipNameCharacters {
-		name = append(name[:shipNameCharacters-1], '…')
+	name := touchscreen.Fitted(choice.ships[choice.index].Name, shipNameCharacters)
+	if choice.below != nil {
+		topHeading(drawing, width, name, choice.caption())
+		return
 	}
-	centred(drawing, string(name), width, 30, headingSize*1.5, draw2d.Bold, colours.ink)
+	centred(drawing, name, width, 30, headingSize*1.5, draw2d.Bold, colours.ink)
 	count := strconv.Itoa(choice.index+1) + " / " + strconv.Itoa(len(choice.ships))
 	centred(drawing, count, width, 46, pixelart.LabelSize, draw2d.Mono, colours.soft)
 	middle := height / 2

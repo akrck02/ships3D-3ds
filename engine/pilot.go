@@ -181,10 +181,6 @@ func (pilot *Pilot) placeCamera(context *engine.Context) {
 	camera.Transform.Rotation = space.RotationLookingAt(target.Subtract(eye), up)
 }
 
-func vectorOf(x, y, z float32) space.Vector {
-	return space.NewVector(float64(x), float64(y), float64(z))
-}
-
 func orDefault(value, fallback string) string {
 	if value == "" {
 		return fallback
