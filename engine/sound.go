@@ -5,12 +5,6 @@ import "github.com/jonbul/ships3D-3ds/sounds"
 // soundSet is the game's sounds (package sounds).
 type soundSet = sounds.Sounds
 
-// The volumes, from 0 to 1, until the game has its settings.
-const (
-	effectsVolume = 0.8
-	musicVolume   = 0.5
-)
-
 // gameSound is the game's one sound, for every scene: opened once, with the music playing.
 var gameSound *soundSet
 
@@ -21,7 +15,7 @@ func openSound() {
 		println("no sound: " + err.Error()) // the debug log
 	}
 	gameSound = sound
-	gameSound.SetVolumes(effectsVolume, musicVolume)
+	applyVolumes()
 }
 
 // playSound plays something on the game's sound, once it is open.

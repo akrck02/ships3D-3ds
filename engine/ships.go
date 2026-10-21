@@ -37,7 +37,8 @@ type Ships struct {
 	own     int // how many of the ships, first, are the player's own designs
 	index   int
 	status  string
-	reload  bool // the server or the account changed: load the ships again
+	reload  bool      // the server or the account changed: load the ships again
+	menu    touchMenu // on the 3DS: the account, the settings and the controls, with START
 	now     float64
 }
 
@@ -50,7 +51,7 @@ func (choice *Ships) Start(context *engine.Context) {
 	})
 	if hasTouchScreen {
 		choice.below = openHangarScreen()
-		showTouchScreen(func(drawing *draw2d.List) { touchscreen.ShipChoice(drawing, textMeasurer(), choice.status) })
+		showTouchScreen(choice.paintTouchScreen)
 		return
 	}
 	choice.hangar = arena.NewHangar()
@@ -119,9 +120,35 @@ func (choice *Ships) show(context *engine.Context) {
 	turnShip(choice.turning, mesh, radius, context.Time)
 }
 
+// paintTouchScreen draws the arrows over the hangar, or the menu over it when it is open.
+func (choice *Ships) paintTouchScreen(drawing *draw2d.List) {
+	if choice.menu.open {
+		choice.menu.paint(drawing, choice.pages(), choice.now)
+		return
+	}
+	touchscreen.ShipChoice(drawing, textMeasurer(), choice.status)
+}
+
+// pages are the ship screen's menu: the account, the settings and the controls.
+func (choice *Ships) pages() []touchscreen.Page {
+	return []touchscreen.Page{
+		accountPage(func() { choice.reload = true }),
+		settingsPage(),
+		touchscreen.ControlsPage(touchscreen.ControlLines),
+	}
+}
+
 // press goes through the ships, launches the chosen one, or goes back to the modes.
 func (choice *Ships) press(context *engine.Context, read touchscreen.Input) {
 	keys := context.Input
+	if hasTouchScreen && pausePressed(keys) {
+		choice.menu.toggle()
+		return
+	}
+	if choice.menu.open {
+		choice.menu.press(choice.pages(), read, choice.now)
+		return
+	}
 	touchedSide := 0
 	if read.Pressed&touchscreen.ButtonTouch != 0 {
 		touchedSide = touchscreen.ShipArrowTouched(read.TouchX)
