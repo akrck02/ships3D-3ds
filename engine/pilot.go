@@ -10,7 +10,6 @@ import (
 
 	"github.com/jonbul/ships3D-3ds/arena"
 	"github.com/jonbul/ships3D-3ds/chase"
-	"github.com/jonbul/ships3D-3ds/flight"
 	"github.com/jonbul/ships3D-3ds/match"
 	"github.com/jonbul/ships3D-3ds/protocol"
 	"github.com/jonbul/ships3D-3ds/sounds"
@@ -125,22 +124,6 @@ func (pilot *Pilot) placeCamera(context *engine.Context) {
 	up := vectorOf(pilot.view.Up[0], pilot.view.Up[1], pilot.view.Up[2])
 	camera.Transform.Position = eye
 	camera.Transform.Rotation = space.RotationLookingAt(target.Subtract(eye), up)
-}
-
-// controlsOf reads the keys as the flight model's controls, as the browser does: the arrows (or
-// the 3DS's cross and circle pad) for the nose and the turn, A and D to roll, W and S for speed,
-// Space (the 3DS's A) to fire.
-func controlsOf(keys *engine.Input) (flight.Controls, bool) {
-	turn, nose := keys.Axis(engine.KeyLeft, engine.KeyRight), keys.Axis(engine.KeyDown, engine.KeyUp)
-	if stick := keys.State(); stick != nil {
-		turn, nose = turn+stick.StickX, nose-stick.StickY
-	}
-	return flight.Controls{
-		Pitch:    nose,
-		Yaw:      turn,
-		Roll:     keys.Axis(engine.KeyA, engine.KeyD),
-		Throttle: keys.Axis(engine.KeyS, engine.KeyW),
-	}, keys.Down(engine.KeySpace)
 }
 
 func vectorOf(x, y, z float32) space.Vector {
