@@ -35,7 +35,8 @@ type Pilot struct {
 	joining touchscreen.Menu // the window while the server hasn't welcomed us yet
 	zoom    int              // the radar's reach, an index in radar.Ranges
 	figures figures.Counter
-	leaving bool // a choice of the menu asked to go back to the ships
+	logged  float64 // seconds, when the figures were last written to the log
+	leaving bool    // a choice of the menu asked to go back to the ships
 }
 
 // The real server, and what a guest flies when the scene names nothing.
@@ -137,6 +138,22 @@ func (pilot *Pilot) show(context *engine.Context) {
 		delay = context.Time - state.SnapshotAt
 	}
 	pilot.figures.AddFrame(figures.Frame{Seconds: context.Delta, Players: len(state.Remotes) + 1, SnapshotDelay: delay})
+	pilot.logFigures(context.Time)
+}
+
+// figuresLogSeconds is how often a match writes its figures to the log, as the 3DS program does:
+// a console's log is how they are read without looking at its screen.
+const figuresLogSeconds = 10
+
+// logFigures writes the last second's figures to the log, every figuresLogSeconds.
+func (pilot *Pilot) logFigures(now float64) {
+	if now-pilot.logged < figuresLogSeconds {
+		return
+	}
+	pilot.logged = now
+	shown := pilot.figures.Shown
+	slog.Info("figures", "fps", shown.FramesPerSecond, "slowest frame ms", int(shown.SlowestFrameMilliseconds),
+		"processor ms", int(shown.ProcessorMilliseconds), "players", shown.Players, "in B/s", shown.BytesIn, "out B/s", shown.BytesOut)
 }
 
 // leave ends the match and goes back to the ships.
