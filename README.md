@@ -59,9 +59,8 @@ the SD card, in `sdmc:/3ds/ships3d/profile.json`.
 | Up / down on the cross | Radar zoom |
 | START | The menu: PILOT, STATS, SETUP and ACCOUNT pages, L and R between them |
 
-The top screen is the game in 3D (the 3D slider works), with your life at the top left. The
-touch screen is a 3D radar that turns with the ship. Near the world's edge the force field shows,
-the camera draws back, the copilot warns, and if you keep heading out it turns you back itself.
+The top screen is the game in 3D, with your life at the top left; the touch screen is a 3D radar.
+Near the world's edge the force field shows, and the copilot turns you back if you keep going.
 
 ## The code
 
@@ -75,7 +74,7 @@ the camera draws back, the copilot warns, and if you keep heading out it turns y
 | `transport`, `match` | Connections on every platform, and a match on the server frame by frame |
 | `arena`, `hud`, `pixelart` | The space the game is seen in (sky, ships, hangar, radar, effects), the HUD, the pixel-art look |
 | `touchscreen` | The touch screen: the menus and their pages, the radar's readings, the title's prompt, the hangar's arrows |
-| `cmd/ships3ds` | The console's program: screens, menus, the touch screen |
+| `cmd/ships3ds` | The console's hand-written program, to be replaced by the engine game |
 | `engine` | The go-engine game: its scenes and behaviours |
 
 All but the two programs are plain Go, tested on a computer with `go test ./...` (the CI runs them).
