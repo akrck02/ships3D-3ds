@@ -45,9 +45,7 @@
 			"behaviours": [
 				{
 					"name": "Ships",
-					"fields": {
-						"server": ""
-					}
+					"fields": {}
 				}
 			]
 		}

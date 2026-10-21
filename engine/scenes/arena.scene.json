@@ -45,9 +45,7 @@
 			"behaviours": [
 				{
 					"name": "Pilot",
-					"fields": {
-						"server": ""
-					}
+					"fields": {}
 				}
 			]
 		}
