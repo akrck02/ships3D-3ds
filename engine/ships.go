@@ -38,7 +38,7 @@ type Ships struct {
 	index   int
 	status  string
 	reload  bool      // the server or the account changed: load the ships again
-	menu    touchMenu // on the 3DS: the account, the settings and the controls, with START
+	menu    touchMenu // the account, the settings and the controls, with START (Tab)
 	now     float64
 }
 
@@ -59,7 +59,11 @@ func (choice *Ships) Start(context *engine.Context) {
 	world.Nodes = append(world.Nodes, choice.hangar.Nodes...)
 	choice.turning = &scene.Node{Name: "chosen ship", Moving: true}
 	world.Nodes = append(world.Nodes, choice.turning)
-	drawInterface(func(context *ui.Context) { accountForm(context, func() { choice.reload = true }) })
+	drawInterface(func(context *ui.Context) {
+		if !choice.menu.open || askedAccount != nil { // the window would cover the menu's pages
+			accountForm(context, func() { choice.reload = true })
+		}
+	})
 }
 
 // load asks the server for the player's ships and puts the last one flown first.
@@ -98,7 +102,7 @@ func (choice *Ships) Update(context *engine.Context) {
 	}
 	darkenSky(context.Scene)
 	choice.show(context)
-	choice.press(context, touchInput(context.Input))
+	choice.press(context, panelInput(context.Input))
 }
 
 // show puts the hangar and the chosen ship where this platform shows them.
@@ -141,7 +145,7 @@ func (choice *Ships) pages() []touchscreen.Page {
 // press goes through the ships, launches the chosen one, or goes back to the modes.
 func (choice *Ships) press(context *engine.Context, read touchscreen.Input) {
 	keys := context.Input
-	if hasTouchScreen && pausePressed(keys) {
+	if menuPressed(keys) {
 		choice.menu.toggle()
 		return
 	}
@@ -203,6 +207,10 @@ func (choice *Ships) paint(drawing *draw2d.List, width, height float32) {
 	if choice.status != "" {
 		centred(drawing, choice.status, width, height-30, pixelart.TextSize, draw2d.Regular, colours.soft)
 	}
+	if choice.menu.open {
+		paintPanel(drawing, width, height, choice.paintTouchScreen)
+		return
+	}
 	prompt(drawing, "ENTER/A LAUNCH", width, height-20, choice.now)
-	hints(drawing, "< > SHIP   ESC/B BACK", width, height)
+	hints(drawing, "< > SHIP   ESC/B BACK   TAB MENU", width, height)
 }

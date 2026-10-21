@@ -22,7 +22,7 @@ import (
 // Pilot plays a match on the server: it joins with a ship, flies it with the player's keys, and
 // shows the arena (package arena) inside the engine's scene, its camera chasing the ship. On the
 // 3DS the touch screen shows the radar and, with START, the menu, as the hand-written program
-// does; on the desktop Escape pauses over the game.
+// does; on the desktop the radar is in a corner and the menu's pages in the middle (panel.go).
 type Pilot struct {
 	world   *arena.World
 	radar   *radarScreen
@@ -31,8 +31,6 @@ type Pilot struct {
 	view    models.Camera
 	status  string
 	now     float64 // seconds, this frame
-	paused  bool    // on the desktop, the pause menu is open
-	resume  bool    // which of the pause menu's two is chosen: Resume, or Leave
 	menu    touchMenu
 	joining touchscreen.Menu // the window while the server hasn't welcomed us yet
 	zoom    int              // the radar's reach, an index in radar.Ranges
@@ -50,7 +48,7 @@ const (
 // Start builds the arena in the engine's scene and starts the match.
 func (pilot *Pilot) Start(context *engine.Context) {
 	pilot.world = stage(context)
-	drawInterface(nil)
+	drawInterface(askedAccountForm)
 	pilot.radar = openRadar()
 	pilot.zoom = radar.DefaultRange
 	drawOver(pilot.paintReadings)
@@ -117,7 +115,7 @@ func (pilot *Pilot) Update(context *engine.Context) {
 // ship flies on straight while a menu is open.
 func (pilot *Pilot) controls(context *engine.Context) (flight.Controls, bool, float64, float64) {
 	turnTilt(context.Input, context.Delta)
-	if pilot.paused || pilot.menu.open {
+	if pilot.menu.open {
 		return flight.Controls{}, false, context.Delta, context.Time
 	}
 	controls, firing := controlsOf(context.Input, player.Settings)

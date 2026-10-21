@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/akrck02/go-renderer/draw2d"
+	ui "github.com/akrck02/go-ui"
 
 	"github.com/jonbul/ships3D-3ds/touchscreen"
 )
@@ -21,8 +22,21 @@ func (menu *touchMenu) toggle() {
 		playSound(func(sound *soundSet) { sound.Play(sound.Choose, 1) })
 		return
 	}
+	askedAccount = nil
 	saveSettings()
 	playSound(func(sound *soundSet) { sound.Play(sound.Back, 1) })
+}
+
+// askedAccount is set while the menu's account page asked for the account window, which a
+// keyboard and a mouse fill (the desktop's, accountForm): it runs when the account changes. The
+// window closes with the menu.
+var askedAccount func()
+
+// askedAccountForm is the account window, while the account page asks for it.
+func askedAccountForm(context *ui.Context) {
+	if askedAccount != nil {
+		accountForm(context, askedAccount)
+	}
 }
 
 // press acts on the menu's pages; B closes it.

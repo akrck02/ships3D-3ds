@@ -42,6 +42,7 @@ func paintInterface(context *ui.Context, _ engine.Menu) {
 
 // paintOverlay is go-engine's 2D layer over the 3D, every frame: what the scene playing paints.
 func paintOverlay(drawing *draw2d.List, width, height float32) {
+	windowWidth, windowHeight = width, height
 	if drawnOver != nil {
 		drawnOver(drawing, width, height)
 	}

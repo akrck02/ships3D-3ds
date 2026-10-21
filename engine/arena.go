@@ -17,14 +17,11 @@ import (
 
 // pressMenus acts on the menus' keys; it tells whether the player chose to leave the match.
 func (pilot *Pilot) pressMenus(context *engine.Context) bool {
-	if !hasTouchScreen {
-		return pilot.pressPause(context)
-	}
 	keys := context.Input
-	read := touchInput(keys)
+	read := panelInput(keys)
 	state := pilot.played.Game
 	switch {
-	case pausePressed(keys):
+	case pilot.opensMenu(keys):
 		pilot.menu.toggle()
 	case pilot.menu.open:
 		pilot.menu.press(pilot.pages(), read, pilot.now)
@@ -36,6 +33,13 @@ func (pilot *Pilot) pressMenus(context *engine.Context) bool {
 		pilot.zoom = min(pilot.zoom+1, len(radar.Ranges)-1)
 	}
 	return false
+}
+
+// opensMenu tells whether the player opened or closed the menu: START, and on the desktop also
+// Escape while it is closed, as games there pause (open, Escape is B and closes it).
+func (pilot *Pilot) opensMenu(keys *engine.Input) bool {
+	escaped := !hasTouchScreen && !pilot.menu.open && pilot.played.Game.Welcomed && cancelled(keys)
+	return menuPressed(keys) || escaped
 }
 
 // pressJoining acts on the window shown until the server welcomes us; it tells whether the
@@ -50,7 +54,7 @@ func (pilot *Pilot) pressJoining(read touchscreen.Input) bool {
 // pressWithoutMatch is the keys when the match couldn't start or has ended: B (Escape) goes back
 // to the ships.
 func (pilot *Pilot) pressWithoutMatch(context *engine.Context) {
-	if hasTouchScreen && pilot.pressJoining(touchInput(context.Input)) || cancelled(context.Input) || pilot.leaving {
+	if pilot.pressJoining(panelInput(context.Input)) || pilot.leaving {
 		pilot.leave(context)
 	}
 }
@@ -114,22 +118,53 @@ func (pilot *Pilot) paintTouchScreen(drawing *draw2d.List) {
 }
 
 // paintReadings paints over the 3D: the 3DS's life bar and the copilot, or the heading of a
-// destroyed ship, laid out in the 3DS's pixels and larger on a larger screen.
+// destroyed ship, laid out in the 3DS's pixels and larger on a larger screen. The desktop, with no
+// touch screen, shows its pages in the middle, and the flat radar in a corner.
 func (pilot *Pilot) paintReadings(drawing *draw2d.List, width, height float32) {
-	if pilot.played == nil || !pilot.played.Game.Welcomed {
+	paintScaled(drawing, width, height, func(drawing *draw2d.List, width, height float32) {
+		welcomed := pilot.played != nil && pilot.played.Game.Welcomed
+		if welcomed {
+			pilot.paintFlight(drawing, width, height)
+		}
+		if hasTouchScreen {
+			return
+		}
+		if welcomed && !pilot.menu.open {
+			pilot.paintCornerRadar(drawing, width, height)
+			return
+		}
+		paintPanel(drawing, width, height, pilot.paintTouchScreen)
+	})
+}
+
+// paintFlight is the top screen's readings: the life bar and the copilot, or who destroyed us.
+func (pilot *Pilot) paintFlight(drawing *draw2d.List, width, height float32) {
+	state := pilot.played.Game
+	if !state.Alive {
+		topHeading(drawing, width, "Destroyed", pilot.deathCaption())
 		return
 	}
-	paintScaled(drawing, width, height, func(drawing *draw2d.List, width, height float32) {
-		state := pilot.played.Game
-		if !state.Alive {
-			topHeading(drawing, width, "Destroyed", pilot.deathCaption())
-		} else {
-			hud.Paint(drawing, state, pilot.now, width, height)
-		}
-		if pilot.paused {
-			pilot.paintPause(drawing, width, height)
-		}
-	})
+	hud.Paint(drawing, state, pilot.now, width, height)
+}
+
+// The desktop's radar: the touch screen's picture at this share of its size, in the bottom right
+// corner, margin pixels of the top screen from its edges.
+const (
+	cornerRadarShare  = 0.5
+	cornerRadarMargin = 6
+)
+
+// paintCornerRadar is the desktop's radar: the flat map as the 3DS's touch screen shows it, smaller,
+// on the touch screen's ground.
+func (pilot *Pilot) paintCornerRadar(drawing *draw2d.List, width, height float32) {
+	start := len(drawing.Commands)
+	drawing.Rectangle(touchscreen.FullScreen, 0, touchscreen.Colours.Screen, draw2d.Color{}, 0)
+	shown := touchscreen.Radar{State: pilot.played.Game, Scanner: pilot.radar.scanner, Range: pilot.zoom, Flat: true, MenuKey: "TAB"}
+	touchscreen.PaintRadar(drawing, touchscreen.FullScreen, shown, pilot.now)
+	pixelart.Scale(drawing, start, cornerRadarShare)
+	x := width - touchscreen.Width*cornerRadarShare - cornerRadarMargin
+	y := height - touchscreen.Height*cornerRadarShare - cornerRadarMargin
+	pixelart.Move(drawing, start, x, y)
 }
 
 // deathCaption says who destroyed us, and when we may fly again.
@@ -143,52 +178,4 @@ func (pilot *Pilot) deathCaption() string {
 		return caption + "A to fly again"
 	}
 	return caption + "back in " + strconv.Itoa(int(math.Ceil(state.RespawnIn(pilot.now)))) + " s"
-}
-
-// pressPause is the desktop's pause menu, over the game: Escape opens it, the arrows choose,
-// Enter goes; it tells whether the player chose to leave.
-func (pilot *Pilot) pressPause(context *engine.Context) bool {
-	keys := context.Input
-	if pausePressed(keys) {
-		pilot.paused, pilot.resume = !pilot.paused, true
-		playSound(func(sound *soundSet) { sound.Play(sound.Choose, 1) })
-		return false
-	}
-	if !pilot.paused {
-		return false
-	}
-	if keys.Pressed(engine.KeyUp) || keys.Pressed(engine.KeyDown) {
-		pilot.resume = !pilot.resume
-		playSound(func(sound *soundSet) { sound.Play(sound.Move, 1) })
-	}
-	if !confirmed(keys) {
-		return false
-	}
-	if pilot.resume {
-		pilot.paused = false
-		playSound(func(sound *soundSet) { sound.Play(sound.Back, 1) })
-		return false
-	}
-	return true
-}
-
-// The pause menu's measures, in pixels.
-const (
-	pauseWidth  = 160
-	pauseHeight = 96
-	pauseRow    = 22
-)
-
-// paintPause draws the pause menu: Resume, and Leave for the ships.
-func (pilot *Pilot) paintPause(drawing *draw2d.List, width, height float32) {
-	area := draw2d.Rect{X: (width - pauseWidth) / 2, Y: (height - pauseHeight) / 2, Width: pauseWidth, Height: pauseHeight}
-	window(drawing, area, "PAUSED")
-	for index, label := range []string{"Resume", "Leave"} {
-		top := area.Y + 32 + float32(index)*pauseRow
-		if (index == 0) == pilot.resume {
-			pixelart.Stepped(drawing, draw2d.Rect{X: area.X + 8, Y: top, Width: area.Width - 16, Height: pauseRow - 4}, 1, colours.chosen)
-			cursor(drawing, area.X+14, top+5, pilot.now)
-		}
-		drawing.Text(label, area.X+32, top+14, pixelart.TextSize, draw2d.Regular, colours.ink)
-	}
 }

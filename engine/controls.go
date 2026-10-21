@@ -11,15 +11,16 @@ import (
 
 // controlsOf reads the keys as the flight model's controls, as the browser does: the arrows (or
 // a gamepad's stick) for the nose and the turn, A and D to roll, W and S for speed, Space to fire.
-// Fine aim softens a stick near its centre.
-//
-// TODO(akrck02): "Up raises the nose" means the up arrow already; agree with the browser on what
-// it changes on a computer (proposal 3, T6).
+// Fine aim softens a stick near its centre; inverting the pitch swaps the nose's keys, as on the
+// 3DS.
 func controlsOf(keys *engine.Input, settings profile.Settings) (flight.Controls, bool) {
 	turn, nose := keys.Axis(engine.KeyLeft, engine.KeyRight), keys.Axis(engine.KeyDown, engine.KeyUp)
 	if stick := keys.State(); stick != nil {
 		precision := float64(settings.Precision)
 		turn, nose = turn+flight.Curve(stick.StickX, precision), nose-flight.Curve(stick.StickY, precision)
+	}
+	if settings.InvertPitch {
+		nose = -nose
 	}
 	return flight.Controls{
 		Pitch:    nose,
@@ -32,7 +33,8 @@ func controlsOf(keys *engine.Input, settings profile.Settings) (flight.Controls,
 // turnTilt is the console's tilt, which a computer has none of.
 func turnTilt(*engine.Input, float64) {}
 
-// pausePressed tells whether the player opened or closed the pause menu: Escape or P.
-func pausePressed(keys *engine.Input) bool {
-	return keys.Pressed(engine.KeyEscape) || keys.Pressed(engine.KeyP)
+// menuPressed tells whether the player opened or closed the menu: Tab or P, the keyboard's START
+// (Enter launches and fires).
+func menuPressed(keys *engine.Input) bool {
+	return keys.Pressed(engine.KeyTab) || keys.Pressed(engine.KeyP)
 }

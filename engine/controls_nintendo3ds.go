@@ -46,6 +46,6 @@ func turnTilt(keys *engine.Input, seconds float64) {
 	}
 }
 
-// pausePressed tells whether START was pressed this frame: it opens and closes the menu, as in
+// menuPressed tells whether START was pressed this frame: it opens and closes the menu, as in
 // the 3DS program.
-func pausePressed(keys *engine.Input) bool { return keys.Pressed(engine.ButtonStart) }
+func menuPressed(keys *engine.Input) bool { return keys.Pressed(engine.ButtonStart) }

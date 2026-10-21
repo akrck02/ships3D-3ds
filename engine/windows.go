@@ -92,10 +92,16 @@ func topHeading(drawing *draw2d.List, width float32, heading, caption string) {
 // paintScaled paints a screen laid out in the 3DS top screen's pixels, larger on a larger screen
 // so it looks the same: paint gets the width and height in those pixels.
 func paintScaled(drawing *draw2d.List, width, height float32, paint func(drawing *draw2d.List, width, height float32)) {
-	scale := float32(max(1, math.Floor(float64(height)/screenHigh)))
+	scale := screenScale(height)
 	start := len(drawing.Commands)
 	paint(drawing, width/scale, height/scale)
 	pixelart.Scale(drawing, start, scale)
+}
+
+// screenScale is how many of a window's pixels, height pixels high, each of the 3DS top screen's
+// pixels takes: a whole number, so the pixel art stays crisp.
+func screenScale(height float32) float32 {
+	return float32(max(1, math.Floor(float64(height)/screenHigh)))
 }
 
 // window draws a window of glass over area, with a title on a ribbon of the accent when title

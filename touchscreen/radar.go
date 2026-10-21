@@ -49,8 +49,9 @@ var (
 type Radar struct {
 	State   *game.Game
 	Scanner *radar.Scanner
-	Range   int  // the index of its reach in radar.Ranges
-	Flat    bool // a flat map drawn here; otherwise the 3D radar is drawn under, by a scene of its own
+	Range   int    // the index of its reach in radar.Ranges
+	Flat    bool   // a flat map drawn here; otherwise the 3D radar is drawn under, by a scene of its own
+	MenuKey string // the key the map says opens the menu; none is the 3DS's START
 }
 
 // PaintRadar draws the radar over area at now seconds: the flat map, when it is flat, and the
@@ -122,7 +123,12 @@ func paintReadings(drawing *draw2d.List, area draw2d.Rect, shown Radar, now floa
 	zoom := radar.Ranges[len(radar.Ranges)-1] / distance
 	rangeText := "ZOOM x" + strconv.Itoa(int(zoom)) + " UP/DOWN"
 	drawing.Text(rangeText, area.X+labelMargin, area.Y+area.Height-labelMargin, labelPixels, draw2d.Mono, mapLabel)
-	drawing.Text("START MENU", area.X+area.Width-labelMargin-10*labelPixels, area.Y+area.Height-labelMargin, labelPixels, draw2d.Mono, mapLabel)
+	menuKey := shown.MenuKey
+	if menuKey == "" {
+		menuKey = "START"
+	}
+	menuText := menuKey + " MENU"
+	drawing.Text(menuText, area.X+area.Width-labelMargin-float32(len(menuText))*labelPixels, area.Y+area.Height-labelMargin, labelPixels, draw2d.Mono, mapLabel)
 }
 
 // paintSweep draws the radar's turning line as a row of dots, since the draw list has no lines,
