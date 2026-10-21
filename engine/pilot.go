@@ -10,6 +10,7 @@ import (
 
 	"github.com/jonbul/ships3D-3ds/arena"
 	"github.com/jonbul/ships3D-3ds/chase"
+	"github.com/jonbul/ships3D-3ds/flight"
 	"github.com/jonbul/ships3D-3ds/hud"
 	"github.com/jonbul/ships3D-3ds/match"
 	"github.com/jonbul/ships3D-3ds/pixelart"
@@ -24,25 +25,19 @@ const spaceAmbient = 0.9
 // screenPixelsHigh is the 3DS's top screen's height: the HUD is laid out in its pixels.
 const screenPixelsHigh = 240
 
-// The volumes, from 0 to 1, until the game has its settings.
-const (
-	effectsVolume = 0.8
-	musicVolume   = 0.5
-)
-
 // Pilot plays a match on the server: it joins with a ship, flies it with the player's keys, and
 // shows the arena (package arena) inside the engine's scene, its camera chasing the ship.
 type Pilot struct {
 	Server string `json:"server"` // address:port, or https://name:port; empty is the real server
-	Ship   string `json:"ship"`   // the ship's id; empty is the Arrow
-	Name   string `json:"name"`   // a guest's name
 
 	world  *arena.World
-	sound  *sounds.Sounds
+	sound  *soundSet
 	played *match.Match
 	view   models.Camera
 	status string
 	now    float64 // seconds, this frame
+	paused bool    // the pause menu is open
+	resume bool    // which of the pause menu's two is chosen: Resume, or Leave
 }
 
 // The real server, and what a guest flies when the scene names nothing.
@@ -54,17 +49,12 @@ const (
 
 // Start builds the arena in the engine's scene and starts the match.
 func (pilot *Pilot) Start(context *engine.Context) {
-	pilot.world = arena.NewWorldIn(context.Scene.World())
-	if camera, found := context.Scene.MainCamera(); found {
-		if settings, isCamera := camera.Camera(); isCamera {
-			settings.Near, settings.Far = arena.CameraNear, arena.CameraFar
-		}
-	}
+	pilot.world = stage(context)
 	drawOver(pilot.paintReadings)
 	pilot.view = models.Camera{Far: arena.CameraFar, Near: arena.CameraNear, FieldOfView: chase.FieldOfView}
-	pilot.startSound()
+	pilot.sound = gameSound
 	played, err := match.Start(transport.Dial, orDefault(pilot.Server, realServer), "",
-		orDefault(pilot.Ship, defaultShip), orDefault(pilot.Name, guestName), match.Hooks{
+		orDefault(chosen.shipID, defaultShip), orDefault(chosen.name, guestName), match.Hooks{
 			Fired: func() { pilot.sound.Play(pilot.sound.Laser, 1) },
 			Received: func(message protocol.Incoming, _ int) {
 				if message.Type == protocol.TypeFire {
@@ -85,7 +75,17 @@ func (pilot *Pilot) Update(context *engine.Context) {
 	if pilot.played == nil {
 		return
 	}
+	if pausePressed(context.Input) {
+		pilot.paused, pilot.resume = !pilot.paused, true
+		playSound(func(sound *soundSet) { sound.Play(sound.Choose, 1) })
+	}
+	if pilot.paused && pilot.choosePaused(context) {
+		return
+	}
 	controls, firing := controlsOf(context.Input)
+	if pilot.paused {
+		controls, firing = flight.Controls{}, false // the ship flies on straight while paused
+	}
 	if err := pilot.played.Exchange(controls, firing, context.Delta, context.Time); err != nil {
 		pilot.status = err.Error()
 		println(pilot.status) // the debug log
@@ -104,6 +104,31 @@ func (pilot *Pilot) Update(context *engine.Context) {
 	pilot.placeCamera(context)
 }
 
+// choosePaused moves the pause menu's choice and acts on it; it tells whether the match was left.
+func (pilot *Pilot) choosePaused(context *engine.Context) bool {
+	keys := context.Input
+	if keys.Pressed(engine.KeyUp) || keys.Pressed(engine.KeyDown) {
+		pilot.resume = !pilot.resume
+		playSound(func(sound *soundSet) { sound.Play(sound.Move, 1) })
+	}
+	if !confirmed(keys) {
+		return false
+	}
+	if pilot.resume {
+		pilot.paused = false
+		playSound(func(sound *soundSet) { sound.Play(sound.Back, 1) })
+		return false
+	}
+	pilot.played.Close()
+	pilot.played = nil
+	playSound(func(sound *soundSet) {
+		sound.Play(sound.Back, 1)
+		sound.RunEngine(false, 0)
+	})
+	context.ChangeScene(shipScene)
+	return true
+}
+
 // paintReadings paints the HUD over the 3D: the 3DS's life bar and the copilot.
 func (pilot *Pilot) paintReadings(drawing *draw2d.List, width, height float32) {
 	if pilot.played == nil {
@@ -113,7 +138,31 @@ func (pilot *Pilot) paintReadings(drawing *draw2d.List, width, height float32) {
 	scale := float32(max(1, math.Floor(float64(height)/screenPixelsHigh)))
 	start := len(drawing.Commands)
 	hud.Paint(drawing, pilot.played.Game, pilot.now, width/scale, height/scale)
+	if pilot.paused {
+		pilot.paintPause(drawing, width/scale, height/scale)
+	}
 	pixelart.Scale(drawing, start, scale)
+}
+
+// The pause menu's measures, in pixels.
+const (
+	pauseWidth  = 160
+	pauseHeight = 96
+	pauseRow    = 22
+)
+
+// paintPause draws the pause menu: Resume, and Leave for the ships.
+func (pilot *Pilot) paintPause(drawing *draw2d.List, width, height float32) {
+	area := draw2d.Rect{X: (width - pauseWidth) / 2, Y: (height - pauseHeight) / 2, Width: pauseWidth, Height: pauseHeight}
+	window(drawing, area, "PAUSED")
+	for index, label := range []string{"Resume", "Leave"} {
+		top := area.Y + 32 + float32(index)*pauseRow
+		if (index == 0) == pilot.resume {
+			pixelart.Stepped(drawing, draw2d.Rect{X: area.X + 8, Y: top, Width: area.Width - 16, Height: pauseRow - 4}, 1, colours.chosen)
+			cursor(drawing, area.X+14, top+5, pilot.now)
+		}
+		drawing.Text(label, area.X+32, top+14, pixelart.TextSize, draw2d.Regular, colours.ink)
+	}
 }
 
 // darkenSky keeps the sky the dark of space: the desktop paints it as a blend from its zenith to
@@ -123,16 +172,7 @@ func darkenSky(scene *engine.Scene) {
 	environment := &scene.World().Environment
 	environment.SkyZenith = environment.SkyHorizon
 	environment.Ambient = spaceAmbient
-}
-
-// startSound opens the sound and starts the music; without it the game plays on in silence.
-func (pilot *Pilot) startSound() {
-	sound, err := sounds.New()
-	if err != nil {
-		println("no sound: " + err.Error()) // the debug log
-	}
-	pilot.sound = sound
-	pilot.sound.SetVolumes(effectsVolume, musicVolume)
+	followCamera(scene)
 }
 
 // placeCamera puts the scene's main camera where the arena's chase camera is.

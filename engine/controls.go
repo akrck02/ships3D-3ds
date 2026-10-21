@@ -23,3 +23,8 @@ func controlsOf(keys *engine.Input) (flight.Controls, bool) {
 		Throttle: keys.Axis(engine.KeyS, engine.KeyW),
 	}, keys.Down(engine.KeySpace)
 }
+
+// pausePressed tells whether the player opened or closed the pause menu: Escape or P.
+func pausePressed(keys *engine.Input) bool {
+	return keys.Pressed(engine.KeyEscape) || keys.Pressed(engine.KeyP)
+}

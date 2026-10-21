@@ -36,3 +36,15 @@ func controlsOf(*engine.Input) (flight.Controls, bool) {
 	}
 	return controls, held&(ctr.ButtonR|ctr.ButtonA) != 0
 }
+
+// startWasHeld is whether START was held last frame, to tell when it is pressed.
+var startWasHeld bool
+
+// pausePressed tells whether START was pressed this frame: it opens and closes the pause menu, as
+// in the 3DS program.
+func pausePressed(*engine.Input) bool {
+	held := ctr.ReadControls().Held&ctr.ButtonStart != 0
+	pressed := held && !startWasHeld
+	startWasHeld = held
+	return pressed
+}

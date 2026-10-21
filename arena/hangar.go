@@ -1,12 +1,10 @@
-//go:build nintendo3ds
-
-package main
+package arena
 
 import (
-	"github.com/jonbul/ships3D-3ds/arena"
 	"math"
 
 	"github.com/akrck02/go-renderer/graphics"
+	"github.com/akrck02/go-renderer/models"
 	"github.com/akrck02/go-renderer/scene"
 
 	"github.com/jonbul/ships3D-3ds/flight"
@@ -18,7 +16,7 @@ import (
 // glowing rim, a planet far behind and spotlights round its edge whose beams sweep up into the
 // stars. It is built of the same parts as the players' ships, lit as they are; the beams are
 // translucent. Distances are in the preview's units; the ship is previewRadius big at
-// previewPosition.
+// HangarShipPlace.
 const (
 	platformTop       = -2.6
 	platformRadius    = 10
@@ -50,13 +48,26 @@ var (
 	hangarLamp   = "#e8f2ff"
 	hangarPlanet = "#6a4fb0"
 	hangarBeam   = [3]float32{0.45, 0.7, 1.0}
-	hangarBack   = graphics.Vec4{0.002, 0.004, 0.012, 1} // space, what the screen is cleared to
-	planetPlace  = flight.Vector{-70, -20, 200}
+	// HangarBack is the far dark around the hangar, what the screen is cleared to.
+	HangarBack  = graphics.Vec4{0.002, 0.004, 0.012, 1} // space, what the screen is cleared to
+	planetPlace = flight.Vector{-70, -20, 200}
 )
 
-// hangar is the hangar's nodes: the still part and the spotlights' beams, which sweep.
-type hangar struct {
-	nodes []*scene.Node
+// HangarShipPlace is where the ship turns on the platform, and HangarCamera looks at it a little
+// from above, where a design shows best: its top, its cockpit and its wings, rather than its belly.
+var (
+	HangarShipPlace = flight.Vector{0, 0, 22}
+	HangarCamera    = models.Camera{
+		Position: graphics.Vec4{0, 7, -3, 1},
+		Target:   graphics.Vec4{0, 1, 22, 1},
+		Up:       graphics.Vec4{0, 1, 0, 0},
+		Near:     1, Far: 400,
+	}
+)
+
+// Hangar is the hangar's nodes: the still part and the spotlights' beams, which sweep.
+type Hangar struct {
+	Nodes []*scene.Node
 	beams []spotlight
 }
 
@@ -68,17 +79,18 @@ type spotlight struct {
 	phase    float64 // where in its sweep it starts, radians
 }
 
-func newHangar() *hangar {
-	built := &hangar{}
-	shrink := float32(previewSkyRadius) / arena.SkyRadius
-	stars := &scene.Node{Name: "stars", Mesh: arena.Stars(), Transform: graphics.Scale(graphics.Vec4{shrink, shrink, shrink, 0})}
+// NewHangar builds the hangar: add its Nodes to a scene, and Show it every frame.
+func NewHangar() *Hangar {
+	built := &Hangar{}
+	shrink := float32(previewSkyRadius) / SkyRadius
+	stars := &scene.Node{Name: "stars", Mesh: Stars(), Transform: graphics.Scale(graphics.Vec4{shrink, shrink, shrink, 0})}
 	still := &scene.Node{Name: "hangar", Transform: graphics.Identity(), Mesh: ship.Build([]protocol.Layer{{Visible: true, Parts: hangarParts()}}, ship.Fine)}
-	built.nodes = append(built.nodes, stars, still)
+	built.Nodes = append(built.Nodes, stars, still)
 	beam := beamMesh()
 	for index := range spotlightsAround {
 		position := spotlightPlace(index)
 		node := &scene.Node{Name: "beam", Mesh: beam}
-		built.nodes = append(built.nodes, node)
+		built.Nodes = append(built.Nodes, node)
 		built.beams = append(built.beams, spotlight{node: node, position: position, outward: math.Copysign(1, position[0]), phase: float64(index) * beamPhaseStep})
 	}
 	return built
@@ -88,12 +100,12 @@ func newHangar() *hangar {
 // the ship's nose, tail and sides.
 func spotlightPlace(index int) flight.Vector {
 	angle := (float64(index) + 0.5) * 2 * math.Pi / spotlightsAround
-	return flight.Vector{spotlightRadius * math.Sin(angle), platformTop, previewPosition[2] + spotlightRadius*math.Cos(angle)}
+	return flight.Vector{spotlightRadius * math.Sin(angle), platformTop, HangarShipPlace[2] + spotlightRadius*math.Cos(angle)}
 }
 
 // hangarParts are the platform, its rim, its keel, the lamps and the far planet.
 func hangarParts() []protocol.Part {
-	centre := previewPosition[2]
+	centre := HangarShipPlace[2]
 	part := func(kind string, position, rotation, scale flight.Vector, colour string) protocol.Part {
 		return protocol.Part{Type: kind, Position: position, Rotation: rotation, Scale: scale, Color: colour}
 	}
@@ -113,11 +125,11 @@ func hangarParts() []protocol.Part {
 	return parts
 }
 
-// show sweeps the beams to where they are at now seconds.
-func (built *hangar) show(now float64) {
+// Show sweeps the beams to where they are at now seconds.
+func (built *Hangar) Show(now float64) {
 	for _, light := range built.beams {
 		lean := -light.outward * (beamLean + beamSway*math.Sin(now*beamSwaySpeed+light.phase))
-		light.node.Transform = arena.TransformOf(light.position, flight.FromEulerXYZ(0, 0, lean), 1)
+		light.node.Transform = TransformOf(light.position, flight.FromEulerXYZ(0, 0, lean), 1)
 	}
 }
 
@@ -130,7 +142,7 @@ func beamMesh() *scene.Mesh {
 		share := (float32(slice) + 0.5) / beamSlices
 		width := beamWidthAtBase + (beamWidthAtTop-beamWidthAtBase)*share
 		start := len(mesh.Colors)
-		arena.AppendBox(mesh, [3]float32{0, (float32(slice) + 0.5) * sliceHeight, 0}, width, sliceHeight, width, hangarBeam)
+		AppendBox(mesh, [3]float32{0, (float32(slice) + 0.5) * sliceHeight, 0}, width, sliceHeight, width, hangarBeam)
 		for colour := start + 3; colour < len(mesh.Colors); colour += 4 {
 			mesh.Colors[colour] = beamOpacityAtBase * (1 - share)
 		}

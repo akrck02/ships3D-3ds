@@ -14,17 +14,17 @@ import (
 	"github.com/jonbul/ships3D-3ds/pixelart"
 )
 
-// overlay paints what the scene playing now shows over its 3D view (the HUD, a menu); each
+// drawnOver paints what the scene playing now shows over its 3D view (the HUD, a menu); each
 // scene's behaviour sets it as it starts (drawOver).
-var overlay func(drawing *draw2d.List, width, height float32)
+var drawnOver func(drawing *draw2d.List, width, height float32)
 
 // drawOver makes paint what shows over the 3D view, until another scene's behaviour changes it.
-func drawOver(paint func(drawing *draw2d.List, width, height float32)) { overlay = paint }
+func drawOver(paint func(drawing *draw2d.List, width, height float32)) { drawnOver = paint }
 
 // paintOverlay is go-engine's 2D layer over the 3D, every frame: what the scene playing paints.
 func paintOverlay(drawing *draw2d.List, width, height float32) {
-	if overlay != nil {
-		overlay(drawing, width, height)
+	if drawnOver != nil {
+		drawnOver(drawing, width, height)
 	}
 }
 
@@ -36,8 +36,9 @@ var files embed.FS
 func main() {
 	pixelart.UseFonts()
 	engine.SetOverlay(paintOverlay)
+	openSound()
 	// Each behaviour the scenes use is registered here, by its type's name.
-	engine.Register(Pilot{})
+	engine.Register(Title{}, Modes{}, Ships{}, Pilot{})
 	if err := engine.Run(files); err != nil {
 		log.Fatal(err)
 	}
