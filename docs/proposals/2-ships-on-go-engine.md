@@ -98,7 +98,7 @@ tests, and is a commit on `feature/go-engine`.
 - [~] T9 — on the 3DS: the radar and the menus on the touch screen, stereoscopic 3D, the gyroscope and the C-stick · R7 · played on a New 3DS
 - [x] T10 — sound: the chiptune effects, music and engine through go-sound · R8 · heard on the desktop and the 3DS
 - [x] T11 — logging in and choosing the server on the desktop (mouse and keyboard) and the 3DS (its keyboard) · R11 · played
-- [ ] T12 — releases with the desktop games and the `.3dsx` and their notices; the README's how to play · R12 · a release
+- [x] T12 — releases with the desktop games and the `.3dsx` and their notices; the README's how to play · R12 · a release — tried on the fork with test tags: the three desktop games and both `.3dsx` on one release
 - [ ] T13 — frame rate on a New 3DS with a dozen players · R10 · numbers written here
 
 ## Result
