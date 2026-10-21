@@ -1,6 +1,4 @@
-//go:build nintendo3ds
-
-package main
+package arena
 
 import (
 	"math/rand/v2"
@@ -73,13 +71,13 @@ func newBursts(space *scene.Scene) *bursts {
 		Type: "sphere", Scale: flight.Vector{2, 2, 2}, Color: "#ffffff"}}}}, ship.Coarse)
 	ball.Material = unlit()
 	for range burstCount {
-		node := &scene.Node{Name: "burst", Mesh: withOwnMaterial(ball), Hidden: true, Moving: true}
+		node := &scene.Node{Name: "burst", Mesh: WithOwnMaterial(ball), Hidden: true, Moving: true}
 		all.flashes = append(all.flashes, burst{node: node})
 		space.Nodes = append(space.Nodes, node)
 	}
-	bit := box("debris", debrisSize, debrisSize, debrisSize, debrisColour)
+	bit := Box("debris", debrisSize, debrisSize, debrisSize, debrisColour)
 	for range debrisCount {
-		node := &scene.Node{Name: "debris", Mesh: withOwnMaterial(bit), Hidden: true, Moving: true}
+		node := &scene.Node{Name: "debris", Mesh: WithOwnMaterial(bit), Hidden: true, Moving: true}
 		all.debris = append(all.debris, piece{node: node})
 		space.Nodes = append(space.Nodes, node)
 	}
@@ -149,4 +147,13 @@ func (all *bursts) show(now, seconds float64) {
 		shade := float32(fade)
 		bit.node.Mesh.Material.BaseColor = graphics.Vec4{shade, shade, shade, 1}
 	}
+}
+
+// WithOwnMaterial is a mesh sharing another's vertices with a material of its own, so its colour
+// can change alone.
+func WithOwnMaterial(mesh *scene.Mesh) *scene.Mesh {
+	copied := *mesh
+	material := *mesh.Material
+	copied.Material, copied.GPU = &material, nil
+	return &copied
 }

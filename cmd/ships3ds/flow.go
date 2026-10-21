@@ -4,6 +4,7 @@ package main
 
 import (
 	"errors"
+	"github.com/jonbul/ships3D-3ds/arena"
 	"math"
 	"strconv"
 
@@ -239,13 +240,13 @@ func (session *session) toggleMenu() {
 
 // previewShip is the chosen ship's mesh and the scale that makes it previewRadius big, for the
 // ship screen to turn; no mesh for a ship the server hasn't described.
-func (session *session) previewShip(world *world) (*scene.Mesh, float64) {
+func (session *session) previewShip(world *arena.World) (*scene.Mesh, float64) {
 	choice := session.ships[session.ship]
 	radius := ship.Radius(choice.layers)
 	if radius <= 0 {
 		return nil, 0
 	}
-	return world.shipMesh(choice.id, choice.layers, false), previewRadius / radius
+	return world.ShipMesh(choice.id, choice.layers, false), previewRadius / radius
 }
 
 // topHeading is what the top screen says over a still view: the title, or the ship being chosen;
@@ -289,7 +290,7 @@ func (session *session) confirm() {
 
 // restart leaves the game and enters the server again, with what changed.
 func (session *session) restart(status string) {
-	if session.client != nil {
+	if session.match != nil {
 		session.leave("")
 	}
 	session.menuOpen = false
@@ -373,14 +374,15 @@ func (session *session) keepLog() {
 		session.figuresAt = session.now
 		shown := session.figures.Shown
 		pending := 0
-		if session.connection != nil {
-			pending = session.connection.Pending()
+		skipped := 0
+		if session.match != nil {
+			pending, skipped = session.match.Pending(), session.match.Skipped
+			session.match.Skipped = 0
 		}
 		session.log.add("figures: " + strconv.Itoa(shown.FramesPerSecond) + " fps, net " + strconv.Itoa(int(shown.NetworkMilliseconds)) +
 			" ms, in " + strconv.Itoa(shown.BytesIn) + " B/s, out " + strconv.Itoa(shown.BytesOut) + " B/s, pending " + strconv.Itoa(pending) +
-			" B, skipped " + strconv.Itoa(session.skipped) + ", players " + strconv.Itoa(shown.Players) +
+			" B, skipped " + strconv.Itoa(skipped) + ", players " + strconv.Itoa(shown.Players) +
 			", music heard " + strconv.Itoa(int(session.sounds.musicSeconds())) + " s")
-		session.skipped = 0
 	}
 }
 

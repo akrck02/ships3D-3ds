@@ -3,6 +3,7 @@
 package main
 
 import (
+	"github.com/jonbul/ships3D-3ds/arena"
 	"math"
 
 	"github.com/akrck02/go-renderer/ctr"
@@ -75,16 +76,16 @@ func newRadarScene(screen *ctr.Screen) (*radarScene, error) {
 	still("half", ring(0.5, radarFaintColour))
 	still("cross", crossLines())
 	built := &radarScene{scene: dish, renderer: renderer}
-	built.sweep = &scene.Node{Name: "sweep", Mesh: box("sweep", radarSweepWidth, radarSweepWidth, 1, radarSweepColour), Moving: true}
+	built.sweep = &scene.Node{Name: "sweep", Mesh: arena.Box("sweep", radarSweepWidth, radarSweepWidth, 1, radarSweepColour), Moving: true}
 	// The sweep's box runs from the centre forward: moved half its length, then turned.
 	built.sweep.Mesh.Positions = shifted(built.sweep.Mesh.Positions, 0, 0, 0.5)
 	dish.Nodes = append(dish.Nodes, built.sweep, &scene.Node{Name: "own", Transform: graphics.Identity(), Mesh: ownMarker()})
 	blip := solid(ship.Build([]protocol.Layer{{Visible: true, Parts: []protocol.Part{{
 		Type: "sphere", Scale: flight.Vector{radarBlipSize, radarBlipSize, radarBlipSize}, Color: "#ffffff"}}}}, ship.Coarse))
-	stalk := box("stalk", radarStalkWidth, 1, radarStalkWidth, [3]float32{1, 1, 1})
+	stalk := arena.Box("stalk", radarStalkWidth, 1, radarStalkWidth, [3]float32{1, 1, 1})
 	for range radarBlips {
-		blipNode := &scene.Node{Name: "blip", Mesh: withOwnMaterial(blip), Hidden: true, Moving: true}
-		stalkNode := &scene.Node{Name: "stalk", Mesh: withOwnMaterial(stalk), Hidden: true, Moving: true}
+		blipNode := &scene.Node{Name: "blip", Mesh: arena.WithOwnMaterial(blip), Hidden: true, Moving: true}
+		stalkNode := &scene.Node{Name: "stalk", Mesh: arena.WithOwnMaterial(stalk), Hidden: true, Moving: true}
 		built.blips, built.stalks = append(built.blips, blipNode), append(built.stalks, stalkNode)
 		dish.Nodes = append(dish.Nodes, blipNode, stalkNode)
 	}
@@ -132,15 +133,6 @@ func solid(mesh *scene.Mesh) *scene.Mesh {
 	return mesh
 }
 
-// withOwnMaterial is a mesh sharing another's vertices with a material of its own, so its colour
-// can change alone.
-func withOwnMaterial(mesh *scene.Mesh) *scene.Mesh {
-	copied := *mesh
-	material := *mesh.Material
-	copied.Material, copied.GPU = &material, nil
-	return &copied
-}
-
 // ring is a flat circle of radius in the dish's plane, a band radarRingWidth wide.
 func ring(radius float64, colour [3]float32) *scene.Mesh {
 	mesh := solid(&scene.Mesh{Name: "ring"})
@@ -166,8 +158,8 @@ func ring(radius float64, colour [3]float32) *scene.Mesh {
 // crossLines are the dish's two diameters: ahead to behind, left to right.
 func crossLines() *scene.Mesh {
 	mesh := solid(&scene.Mesh{Name: "cross"})
-	appendBox(mesh, [3]float32{}, radarRingWidth, radarRingWidth, 2, radarFaintColour)
-	appendBox(mesh, [3]float32{}, 2, radarRingWidth, radarRingWidth, radarFaintColour)
+	arena.AppendBox(mesh, [3]float32{}, radarRingWidth, radarRingWidth, 2, radarFaintColour)
+	arena.AppendBox(mesh, [3]float32{}, 2, radarRingWidth, radarRingWidth, radarFaintColour)
 	return mesh
 }
 

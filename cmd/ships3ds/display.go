@@ -9,6 +9,7 @@ import (
 	"github.com/akrck02/go-renderer/draw2d"
 	"github.com/akrck02/go-renderer/models"
 	"github.com/akrck02/go-renderer/opengl/overlay"
+	"github.com/jonbul/ships3D-3ds/arena"
 )
 
 // display is both screens and what paints them: the top screen's scene and its words, the touch
@@ -64,15 +65,15 @@ func (shown *display) close() { shown.screen.Close() }
 
 // paintTop draws the top screen: a heading over a still picture (the title, the ship being
 // chosen, the death screen), or the game in 3D with its readings over it.
-func (shown *display) paintTop(session *session, world *world, view models.Camera, now float64) {
+func (shown *display) paintTop(session *session, world *arena.World, view models.Camera, now float64) {
 	if heading, caption := session.topHeading(); heading != "" {
 		// One picture rather than two eyes: the words painted over it would show double in 3D.
-		shown.renderer.PaintOn(shown.screen, world.scene, view)
+		shown.renderer.PaintOn(shown.screen, world.Scene(), view)
 		shown.title.paint(shown.screen, heading, caption)
 		return
 	}
-	separation := ctr.Slider3D() * eyeSeparation
-	shown.renderer.PaintStereo(world.scene, view, separation, focalDistance)
+	separation := ctr.Slider3D() * arena.EyeSeparation
+	shown.renderer.PaintStereo(world.Scene(), view, separation, arena.FocalDistance)
 	if session.screen == gameScreen && session.game.Welcomed {
 		paintHUD(&shown.readings, session.game, now)
 		shown.title.paintOver(shown.screen, &shown.readings, separation > 0)
@@ -81,7 +82,7 @@ func (shown *display) paintTop(session *session, world *world, view models.Camer
 
 // paintBottom draws the touch screen: the 3D radar or the turning ship under the panel's
 // painting, or the panel alone.
-func (shown *display) paintBottom(session *session, world *world, frame app.Frame, now float64) {
+func (shown *display) paintBottom(session *session, world *arena.World, frame app.Frame, now float64) {
 	switch {
 	case session.showsRadar3D():
 		shown.dish.paint(shown.panel.Screen(), session.scanner, now)

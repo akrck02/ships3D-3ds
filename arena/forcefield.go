@@ -1,6 +1,4 @@
-//go:build nintendo3ds
-
-package main
+package arena
 
 import (
 	"github.com/akrck02/go-renderer/graphics"

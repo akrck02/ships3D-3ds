@@ -1,6 +1,4 @@
-//go:build nintendo3ds
-
-package main
+package arena
 
 import (
 	"github.com/akrck02/go-renderer/graphics"
@@ -18,10 +16,10 @@ import (
 // The camera, in world units: a chase camera above and behind the ship, as the browser's, in ship
 // radii.
 const (
-	cameraNear    = 0.5
-	cameraFar     = 7000 // past the sky, which is past the world's edge
-	focalDistance = 15
-	eyeSeparation = 0.4 // with the 3D slider at its top
+	CameraNear    = 0.5
+	CameraFar     = 7000 // past the sky, which is past the world's edge
+	FocalDistance = 15
+	EyeSeparation = 0.4 // with the 3D slider at its top
 )
 
 // Bullets.
@@ -38,8 +36,9 @@ var (
 	reticleColour     = [3]float32{0.45, 0.85, 1}
 )
 
-// world is what the top screen shows.
-type world struct {
+// World is the space the game is seen in, on the top screen: the sky, the ships, the bullets and
+// the effects.
+type World struct {
 	scene                  *scene.Scene
 	own                    *scene.Node
 	ownShip                string
@@ -65,10 +64,18 @@ type world struct {
 	dust                   []*scene.Node
 }
 
-func newWorld() *world {
+// Scene is what the world draws: the renderer paints it.
+func (world *World) Scene() *scene.Scene { return world.scene }
+
+// HideTitle hides the title's ship, for screens that show only the still view behind a heading.
+func (world *World) HideTitle() { world.title.Hidden = true }
+
+// NewWorld builds the space the game is seen in: the lit sky, the dust, our ship, the aim cross
+// and the effects, ready for Show to place every frame.
+func NewWorld() *World {
 	space := scene.New()
-	lightSpace(&space.Environment)
-	world := &world{scene: space, ships: map[meshKey]*scene.Mesh{}, remotes: map[string]*scene.Node{}}
+	LightSpace(&space.Environment)
+	world := &World{scene: space, ships: map[meshKey]*scene.Mesh{}, remotes: map[string]*scene.Node{}}
 	world.sky = skyNode()
 	world.edge = &scene.Node{Name: "world edge", Transform: graphics.Identity(), Hidden: true}
 	world.crash = newCrash(space)
@@ -89,8 +96,8 @@ func newWorld() *world {
 	world.own = &scene.Node{Name: "own", Hidden: true, Moving: true}
 	world.reticle = &scene.Node{Name: "reticle", Mesh: reticle(), Hidden: true, Moving: true}
 	space.Nodes = append(space.Nodes, world.own, world.reticle)
-	world.ownBullet = box("own bullet", bulletSize, bulletSize, bulletSize, ownBulletColour)
-	world.otherBullet = box("other bullet", bulletSize, bulletSize, bulletSize, otherBulletColour)
+	world.ownBullet = Box("own bullet", bulletSize, bulletSize, bulletSize, ownBulletColour)
+	world.otherBullet = Box("other bullet", bulletSize, bulletSize, bulletSize, otherBulletColour)
 	for range maximumShown {
 		node := &scene.Node{Name: "bullet", Mesh: world.ownBullet, Hidden: true}
 		world.bullets = append(world.bullets, node)
@@ -100,7 +107,7 @@ func newWorld() *world {
 }
 
 // show places everything where the game says, and the camera behind our ship.
-func (world *world) show(state *game.Game, events []game.Event, view *models.Camera, seconds, now float64) {
+func (world *World) Show(state *game.Game, events []game.Event, view *models.Camera, seconds, now float64) {
 	world.title.Hidden = true
 	world.now = now
 	if !state.Welcomed {
@@ -110,10 +117,10 @@ func (world *world) show(state *game.Game, events []game.Event, view *models.Cam
 	scale := state.Player.Scale
 	if world.ownShip != state.Player.Ship.Id {
 		world.ownShip = state.Player.Ship.Id
-		world.own.Mesh = world.shipMesh(state.Player.Ship.Id, state.Player.Ship.Layers, false)
+		world.own.Mesh = world.ShipMesh(state.Player.Ship.Id, state.Player.Ship.Layers, false)
 	}
 	world.own.Hidden = !state.Alive
-	world.own.Transform = transformOf(state.Own.Position, state.Own.Rotation, scale)
+	world.own.Transform = TransformOf(state.Own.Position, state.Own.Rotation, scale)
 	if state.Alive && !world.wasAlive {
 		world.camera.Reset() // back from a respawn, far from the wreck
 	}
@@ -136,7 +143,7 @@ func (world *world) show(state *game.Game, events []game.Event, view *models.Cam
 
 // placeSpace keeps the sky around the camera, the dust around the ship, and the world's edge, once
 // the game has said how large the world is.
-func (world *world) placeSpace(state *game.Game) {
+func (world *World) placeSpace(state *game.Game) {
 	eye := world.view.Eye
 	world.sky.Transform = graphics.Translate(graphics.Vec4{float32(eye[0]), float32(eye[1]), float32(eye[2]), 0})
 	dustCellsAround(world.dust, state.Own.Position)
@@ -167,7 +174,7 @@ const (
 )
 
 // shipMesh is a design's mesh near or far, built the first time it is asked for.
-func (world *world) shipMesh(id string, layers []protocol.Layer, far bool) *scene.Mesh {
+func (world *World) ShipMesh(id string, layers []protocol.Layer, far bool) *scene.Mesh {
 	key := meshKey{id, far}
 	if mesh, found := world.ships[key]; found {
 		return mesh
@@ -187,7 +194,7 @@ const (
 	sightDistance  = 700 // farther, a ship is a pixel or two
 )
 
-func (world *world) showRemotes(state *game.Game) {
+func (world *World) showRemotes(state *game.Game) {
 	for id, node := range world.remotes {
 		if _, found := state.Remotes[id]; !found {
 			node.Hidden = true
@@ -211,14 +218,14 @@ func (world *world) showRemotes(state *game.Game) {
 		}
 		distance := player.Shown.Position.Subtract(state.Own.Position).Length()
 		node.Hidden = false
-		node.Mesh = world.shipMesh(player.Player.Ship.Id, player.Player.Ship.Layers, distance > coarseDistance)
-		node.Transform = transformOf(player.Shown.Position, player.Shown.Rotation, player.Player.Scale)
+		node.Mesh = world.ShipMesh(player.Player.Ship.Id, player.Player.Ship.Layers, distance > coarseDistance)
+		node.Transform = TransformOf(player.Shown.Position, player.Shown.Rotation, player.Player.Scale)
 	}
 }
 
 // reuseOrAddNode takes a hidden ship node no remote uses any more, or adds one: nodes are never
 // removed from the scene, so the renderer keeps what it uploaded.
-func (world *world) reuseOrAddNode() *scene.Node {
+func (world *World) reuseOrAddNode() *scene.Node {
 	for _, node := range world.scene.Nodes {
 		if node.Name == "remote" && node.Hidden && !world.inUse(node) {
 			return node
@@ -229,7 +236,7 @@ func (world *world) reuseOrAddNode() *scene.Node {
 	return node
 }
 
-func (world *world) inUse(candidate *scene.Node) bool {
+func (world *World) inUse(candidate *scene.Node) bool {
 	for _, node := range world.remotes {
 		if node == candidate {
 			return true
@@ -238,7 +245,7 @@ func (world *world) inUse(candidate *scene.Node) bool {
 	return false
 }
 
-func (world *world) showBullets(state *game.Game) {
+func (world *World) showBullets(state *game.Game) {
 	shown := 0
 	show := func(bullets []game.Bullet, mesh *scene.Mesh) {
 		for _, bullet := range bullets {
@@ -247,7 +254,7 @@ func (world *world) showBullets(state *game.Game) {
 			}
 			node := world.bullets[shown]
 			node.Hidden, node.Mesh = false, mesh
-			node.Transform = transformOf(bullet.Position, flight.NoRotation, 1)
+			node.Transform = TransformOf(bullet.Position, flight.NoRotation, 1)
 			shown++
 		}
 	}
@@ -258,7 +265,7 @@ func (world *world) showBullets(state *game.Game) {
 	}
 }
 
-func (world *world) placeCamera(state *game.Game, view *models.Camera, seconds float64) {
+func (world *World) placeCamera(state *game.Game, view *models.Camera, seconds float64) {
 	chased := world.camera.Follow(state.Own, state.Settings.ShipRadius, seconds)
 	// Near the edge the camera draws back, as if something were wrong.
 	chased.Eye = chased.Target.Add(chased.Eye.Subtract(chased.Target).Times(1 + cameraPullBack*state.EdgeNearness()))
@@ -284,10 +291,10 @@ func (world *world) placeCamera(state *game.Game, view *models.Camera, seconds f
 const reticleDistance = 60
 
 // placeReticle floats the aim mark ahead of our nose, facing us.
-func (world *world) placeReticle(state *game.Game) {
+func (world *World) placeReticle(state *game.Game) {
 	world.reticle.Hidden = !state.Alive
 	ahead := state.Own.Position.Add(state.Own.Rotation.Apply(flight.Forward).Times(reticleDistance))
-	world.reticle.Transform = transformOf(ahead, state.Own.Rotation, 1)
+	world.reticle.Transform = TransformOf(ahead, state.Own.Rotation, 1)
 }
 
 // reticle is a cross with a gap in the middle, drawn in the plane facing the ship.
@@ -300,7 +307,7 @@ func reticle() *scene.Mesh {
 		if centre[0] == 0 {
 			width, height = thickness, arm
 		}
-		appendBox(mesh, centre, width, height, thickness, reticleColour)
+		AppendBox(mesh, centre, width, height, thickness, reticleColour)
 	}
 	return mesh
 }
@@ -309,7 +316,7 @@ func vectorOf(vector flight.Vector, w float32) graphics.Vec4 {
 	return graphics.Vec4{float32(vector[0]), float32(vector[1]), float32(vector[2]), w}
 }
 
-func transformOf(position flight.Vector, rotation flight.Rotation, scale float64) graphics.Mat4 {
+func TransformOf(position flight.Vector, rotation flight.Rotation, scale float64) graphics.Mat4 {
 	return graphics.FromTranslationRotationScale(
 		graphics.Vec4{float32(position[0]), float32(position[1]), float32(position[2]), 1},
 		graphics.Vec4{float32(rotation[0]), float32(rotation[1]), float32(rotation[2]), float32(rotation[3])},
@@ -317,14 +324,14 @@ func transformOf(position flight.Vector, rotation flight.Rotation, scale float64
 	)
 }
 
-func box(name string, width, height, depth float32, colour [3]float32) *scene.Mesh {
+func Box(name string, width, height, depth float32, colour [3]float32) *scene.Mesh {
 	mesh := &scene.Mesh{Name: name, Material: &scene.Material{Kind: scene.KindUnlit, BaseColor: graphics.Vec4{1, 1, 1, 1}}}
-	appendBox(mesh, [3]float32{}, width, height, depth, colour)
+	AppendBox(mesh, [3]float32{}, width, height, depth, colour)
 	return mesh
 }
 
-// appendBox adds a box's twelve triangles to a mesh.
-func appendBox(mesh *scene.Mesh, centre [3]float32, width, height, depth float32, colour [3]float32) {
+// AppendBox adds a box's twelve triangles to a mesh.
+func AppendBox(mesh *scene.Mesh, centre [3]float32, width, height, depth float32, colour [3]float32) {
 	half := [3]float32{width / 2, height / 2, depth / 2}
 	corner := func(x, y, z float32) [3]float32 {
 		return [3]float32{centre[0] + x*half[0], centre[1] + y*half[1], centre[2] + z*half[2]}

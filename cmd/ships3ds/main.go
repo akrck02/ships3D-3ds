@@ -11,10 +11,10 @@
 package main
 
 import (
+	"github.com/jonbul/ships3D-3ds/arena"
 	"math"
 	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/akrck02/go-3ds/app"
@@ -28,12 +28,12 @@ import (
 	"github.com/jonbul/ships3D-3ds/figures"
 	"github.com/jonbul/ships3D-3ds/flight"
 	"github.com/jonbul/ships3D-3ds/game"
+	"github.com/jonbul/ships3D-3ds/match"
 	"github.com/jonbul/ships3D-3ds/profile"
 	"github.com/jonbul/ships3D-3ds/protocol"
 	"github.com/jonbul/ships3D-3ds/radar"
 	"github.com/jonbul/ships3D-3ds/tilt"
 	"github.com/jonbul/ships3D-3ds/transport"
-	"github.com/jonbul/ships3D-3ds/websocket"
 )
 
 // Set with -ldflags -X: the server the game starts with, and a guest's name. The real server is
@@ -42,9 +42,6 @@ var (
 	server = "https://jonbul.ddns.net:3000"
 	name   = "3DS"
 )
-
-// websocketPath is where the server takes game connections (controllers/game.go).
-const websocketPath = "/ws"
 
 func main() {
 	// The socket service wants a megabyte in one piece: asked for first, before the fonts, the
@@ -59,9 +56,9 @@ func main() {
 	}
 	defer shown.close()
 	session := startSession(shown.measurer)
-	world := newWorld()
+	world := arena.NewWorld()
 	start := time.Now()
-	view := models.Camera{Far: cameraFar, Near: cameraNear, FieldOfView: chase.FieldOfView}
+	view := models.Camera{Far: arena.CameraFar, Near: arena.CameraNear, FieldOfView: chase.FieldOfView}
 	app.RunWithStart(func(frame app.Frame) bool {
 		return session.playFrame(shown, world, &view, frame, time.Since(start).Seconds())
 	})
@@ -87,7 +84,7 @@ func startSession(measurer draw2d.Measurer) *session {
 
 // playFrame plays one frame: the buttons, the network, the sound, then both screens. It tells
 // whether to go on.
-func (session *session) playFrame(shown *display, world *world, view *models.Camera, frame app.Frame, now float64) bool {
+func (session *session) playFrame(shown *display, world *arena.World, view *models.Camera, frame app.Frame, now float64) bool {
 	frameStart := time.Now()
 	session.now = now
 	if !session.press(frame) {
@@ -100,13 +97,13 @@ func (session *session) playFrame(shown *display, world *world, view *models.Cam
 	state := session.game
 	flying := session.screen == gameScreen && state.Welcomed && state.Alive
 	session.sounds.runEngine(flying, math.Abs(state.Own.Speed)/math.Max(state.Settings.MaxSpeed, 1))
-	world.show(state, events, view, frame.Seconds, now)
+	world.Show(state, events, view, frame.Seconds, now)
 	switch session.screen {
 	case titleScreen, enteringScreen:
-		world.showTitle(now, view)
+		world.ShowTitle(now, view)
 	case shipScreen:
-		world.showTitle(now, view)
-		world.title.Hidden = true // the ship turns on the touch screen; the top shows its name
+		world.ShowTitle(now, view)
+		world.HideTitle() // the ship turns on the touch screen; the top shows its name
 	}
 	ctr.BeginFrame()
 	shown.paintTop(session, world, *view, now)
@@ -130,9 +127,7 @@ const (
 // session is the game, its connection to the server and what the touch screen shows.
 type session struct {
 	game       *game.Game
-	connection transport.Connection
-	client     *websocket.Client
-	joined     bool
+	match      *match.Match    // the game on the server, while connected
 	profile    profile.Profile // what is remembered on the SD card
 	account    account.Session
 	ships      []shipChoice // what the ship screen's arrows go through
@@ -152,7 +147,6 @@ type session struct {
 	now        float64               // seconds, this frame
 	blips      map[string]radar.Blip // where the radar sees each ship this frame, reused
 	figures    figures.Counter
-	reader     protocol.Reader
 	tilt       tilt.Tilt
 	gyroscope  app.Gyroscope // this frame's, for the menu's STATS page
 	heapBytes  uint64        // the heap's size, read now and then
@@ -162,7 +156,6 @@ type session struct {
 	edgeHeard  float64 // the crash the force field's sound was played for
 	logged     string  // the status last written to the log
 	figuresAt  float64 // when figures were last logged
-	skipped    int     // position updates skipped while the network was behind, since the last figures
 }
 
 func newSession(remembered profile.Profile) *session {
@@ -171,48 +164,50 @@ func newSession(remembered profile.Profile) *session {
 		account: account.Session{Token: remembered.Token, Username: remembered.Username}}
 }
 
-// dial connects to the server, over TLS when it was typed with https://.
-func dial(address account.Address) (transport.Connection, error) {
-	return transport.Dial(address.Host, address.Port, address.Secure)
-}
-
 // api is the server's HTTP side, for logging in and the list of ships.
 func (session *session) api() (account.Server, error) {
 	address, err := account.ParseAddress(session.profile.Server)
 	if err != nil {
 		return account.Server{}, err
 	}
-	connect := func() (account.Connection, error) { return dial(address) }
+	connect := func() (account.Connection, error) {
+		return transport.Dial(address.Host, address.Port, address.Secure)
+	}
 	return account.Server{Dial: connect, Host: address.HostPort()}, nil
 }
 
-// connect opens the game's connection and starts the websocket handshake, with the session's
+// connect opens the game's match on the server and starts the websocket handshake, with the session's
 // cookie when logged in.
 func (session *session) connect() {
-	address, err := account.ParseAddress(session.profile.Server)
-	if err != nil {
-		session.status = err.Error()
-		return
-	}
-	session.connection, err = dial(address)
-	if err != nil {
-		session.status = err.Error()
-		return
-	}
-	var header map[string]string
+	cookie := ""
 	if session.account.Token != "" {
-		header = map[string]string{"Cookie": session.account.Cookie()}
+		cookie = session.account.Cookie()
 	}
-	hostPort := address.HostPort()
-	session.client, err = websocket.Connect(session.connection, hostPort, websocketPath, header)
+	played, err := match.Start(transport.Dial, session.profile.Server, cookie, session.ships[session.ship].id, session.playerName(), match.Hooks{
+		Received: session.heard,
+		Sent:     func(text string) { session.figures.Sent(len(text)) },
+		Fired:    func() { session.sounds.play(session.sounds.laser, 1) },
+	})
 	if err != nil {
 		session.status = err.Error()
 		return
 	}
-	session.status = "Connecting to " + hostPort + "…"
+	session.match, session.game = played, played.Game
+	session.status = "Connecting to " + session.profile.Server + "…"
 	session.screen = gameScreen
 	session.sounds.play(session.sounds.choose, 1)
 	session.remember(func(remembered *profile.Profile) { remembered.Ship = session.ships[session.ship].id })
+}
+
+// heard is a message from the server, for the figures, the log and others' shots' sound.
+func (session *session) heard(message protocol.Incoming, bytes int) {
+	session.figures.Received(bytes)
+	if message.Type == protocol.TypeError {
+		session.log.add("server says: " + message.Message)
+	}
+	if message.Type == protocol.TypeFire {
+		session.sounds.play(session.sounds.laser, otherShotsVolume)
+	}
 }
 
 // press acts on the buttons pressed this frame that change screens, and tells whether to go on.
@@ -264,76 +259,40 @@ func (session *session) pressInGame(input menuInput) {
 // leave closes the game's connection and goes back to choosing a ship.
 func (session *session) leave(status string) {
 	session.close()
-	session.client, session.connection = nil, nil
-	session.game, session.joined, session.menuOpen = game.New(), false, false
+	session.match = nil
+	session.game, session.menuOpen = game.New(), false
 	session.scanner = radar.NewScanner()
 	session.status, session.screen = status, shipScreen
 	session.sounds.play(session.sounds.back, 1)
 }
 
-// exchange reads what the server sent, moves the game on with the controls and sends the result.
+// exchange moves the match on with this frame's controls: what the server sent in, our moves out.
 func (session *session) exchange(frame app.Frame, now float64) {
-	if session.client == nil {
+	if session.match == nil {
 		return
 	}
-	if err := session.connection.Flush(); err != nil {
+	controls, firing := session.controls(frame)
+	if err := session.match.Exchange(controls, firing, frame.Seconds, now); err != nil {
 		session.leave("Disconnected: " + err.Error())
 		return
 	}
-	if err := session.receive(now); err != nil {
-		session.leave("Disconnected: " + err.Error())
-		return
-	}
-	if !session.client.Open() {
-		return
-	}
-	if !session.joined {
-		session.joined = true
-		session.status = "Joining…"
-		session.send(protocol.Join(session.ships[session.ship].id, session.playerName()))
-	}
+	session.status = "Joining…"
 	if session.game.Welcomed {
 		session.status = "Playing on " + session.profile.Server
 	}
-	session.fly(frame, now)
 	session.scan(now)
 }
 
-// receive hands the game what the server sent since the last frame.
-func (session *session) receive(now float64) error {
-	messages, err := session.client.Receive()
-	for _, text := range messages {
-		message, states, readErr := session.reader.Read(text)
-		if readErr != nil {
-			println(readErr.Error()) // the debug log; one bad message doesn't end the game
-			continue
-		}
-		session.figures.Received(len(text))
-		if message.Type == protocol.TypeError {
-			session.log.add("server says: " + message.Message)
-		}
-		if message.Type == protocol.TypeFire {
-			session.sounds.play(session.sounds.laser, otherShotsVolume)
-		}
-		session.game.Handle(message, states, now)
-	}
-	return err
-}
-
-// fly moves our ship on with this frame's controls and sends what the server must hear.
-func (session *session) fly(frame app.Frame, now float64) {
+// controls are this frame's controls, and whether it fires.
+func (session *session) controls(frame app.Frame) (flight.Controls, bool) {
 	tiltOf(&session.tilt, frame)
 	if frame.Pressed&ctr.ButtonL != 0 && !session.menuOpen {
 		session.tilt.Centre()
 	}
-	firing := frame.Reading.Held&fireButtons != 0
-	controls := controlsOf(frame, session.profile.Settings, session.tilt)
 	if session.menuOpen {
-		controls, firing = flight.Controls{}, false // the ship flies on straight while the options are open
+		return flight.Controls{}, false // the ship flies on straight while the options are open
 	}
-	for _, text := range session.game.Step(controls, firing, firing, frame.Seconds, now) {
-		session.send(text)
-	}
+	return controlsOf(frame, session.profile.Settings, session.tilt), frame.Reading.Held&fireButtons != 0
 }
 
 // scan turns the map's sweep and lets it see the ships it passes over.
@@ -350,39 +309,9 @@ func (session *session) scan(now float64) {
 	session.scanner.Update(now, blips)
 }
 
-// stateBacklogBytes is how much may wait to be sent before position updates are skipped: each
-// replaces the one before, so sending a stale one behind a stalled network only adds to the pile.
-const stateBacklogBytes = 2048
-
-// How every position update and every shot begin (protocol.State, protocol.Fire).
-const (
-	stateStart = `{"type":"state"`
-	fireStart  = `{"type":"fire"`
-)
-
-func (session *session) send(text string) {
-	if session.client == nil {
-		return // left on an earlier message of this frame
-	}
-	if strings.HasPrefix(text, stateStart) && session.connection.Pending() > stateBacklogBytes {
-		session.skipped++
-		return
-	}
-	if strings.HasPrefix(text, fireStart) {
-		session.sounds.play(session.sounds.laser, 1)
-	}
-	session.figures.Sent(len(text))
-	if err := session.client.Send(text); err != nil {
-		session.leave("Disconnected: " + err.Error())
-	}
-}
-
 func (session *session) close() {
-	if session.client != nil {
-		_ = session.client.Close() // leaving anyway; the server notices the socket close too
-	}
-	if session.connection != nil {
-		_ = session.connection.Close() // as above
+	if session.match != nil {
+		session.match.Close()
 	}
 	network.Stop()
 }

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"github.com/jonbul/ships3D-3ds/arena"
 	"math"
 
 	"github.com/akrck02/go-renderer/graphics"
@@ -69,8 +70,8 @@ type spotlight struct {
 
 func newHangar() *hangar {
 	built := &hangar{}
-	shrink := float32(previewSkyRadius) / skyRadius
-	stars := &scene.Node{Name: "stars", Mesh: stars(), Transform: graphics.Scale(graphics.Vec4{shrink, shrink, shrink, 0})}
+	shrink := float32(previewSkyRadius) / arena.SkyRadius
+	stars := &scene.Node{Name: "stars", Mesh: arena.Stars(), Transform: graphics.Scale(graphics.Vec4{shrink, shrink, shrink, 0})}
 	still := &scene.Node{Name: "hangar", Transform: graphics.Identity(), Mesh: ship.Build([]protocol.Layer{{Visible: true, Parts: hangarParts()}}, ship.Fine)}
 	built.nodes = append(built.nodes, stars, still)
 	beam := beamMesh()
@@ -116,7 +117,7 @@ func hangarParts() []protocol.Part {
 func (built *hangar) show(now float64) {
 	for _, light := range built.beams {
 		lean := -light.outward * (beamLean + beamSway*math.Sin(now*beamSwaySpeed+light.phase))
-		light.node.Transform = transformOf(light.position, flight.FromEulerXYZ(0, 0, lean), 1)
+		light.node.Transform = arena.TransformOf(light.position, flight.FromEulerXYZ(0, 0, lean), 1)
 	}
 }
 
@@ -129,7 +130,7 @@ func beamMesh() *scene.Mesh {
 		share := (float32(slice) + 0.5) / beamSlices
 		width := beamWidthAtBase + (beamWidthAtTop-beamWidthAtBase)*share
 		start := len(mesh.Colors)
-		appendBox(mesh, [3]float32{0, (float32(slice) + 0.5) * sliceHeight, 0}, width, sliceHeight, width, hangarBeam)
+		arena.AppendBox(mesh, [3]float32{0, (float32(slice) + 0.5) * sliceHeight, 0}, width, sliceHeight, width, hangarBeam)
 		for colour := start + 3; colour < len(mesh.Colors); colour += 4 {
 			mesh.Colors[colour] = beamOpacityAtBase * (1 - share)
 		}

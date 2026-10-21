@@ -1,6 +1,4 @@
-//go:build nintendo3ds
-
-package main
+package arena
 
 import (
 	"math"
@@ -20,11 +18,11 @@ import (
 // show its speed. Distances are the browser's: the planets, at 4,800, stay behind every part of
 // the world's edge (a sphere of 1,500, never more than 3,000 away), so its lines cross over them.
 const (
-	skyRadius        = 6000
+	SkyRadius        = 6000
 	starCount        = 1500
-	starSize         = 22 // world units at skyRadius: about a pixel and a half, as the browser's
+	starSize         = 22 // world units at SkyRadius: about a pixel and a half, as the browser's
 	starSeed         = 11
-	planetDistance   = skyRadius * 0.8
+	planetDistance   = SkyRadius * 0.8
 	edgeWidthShare   = 0.002 // three world units at the edge's far side, 1,500 away
 	edgeLeastWidth   = 0.02
 	edgeRebuildGap   = 50  // world units the camera moves before the edge's widths are worked out again
@@ -57,8 +55,8 @@ var planets = []struct {
 	{flight.Vector{-0.15, 0.95, -0.25}, 260, "#9e9e9e"},
 }
 
-// lightSpace sets the light as the browser's: a bluish sky above, a dark ground below, a warm sun.
-func lightSpace(environment *scene.Environment) {
+// LightSpace sets the light as the browser's: a bluish sky above, a dark ground below, a warm sun.
+func LightSpace(environment *scene.Environment) {
 	environment.SkyHorizon, environment.FogColor = spaceBackground, spaceBackground // what the screen is cleared to
 	environment.SkyZenith = skyLight                                                // the sky's light on the ships
 	environment.GroundAmbient = groundLight
@@ -70,7 +68,7 @@ func lightSpace(environment *scene.Environment) {
 // skyNode is the stars and the planets, one node the world moves to the camera every frame.
 func skyNode() *scene.Node {
 	node := &scene.Node{Name: "sky", Transform: graphics.Identity()}
-	node.Children = append(node.Children, &scene.Node{Name: "stars", Transform: graphics.Identity(), Mesh: stars()})
+	node.Children = append(node.Children, &scene.Node{Name: "stars", Transform: graphics.Identity(), Mesh: Stars()})
 	for _, planet := range planets {
 		direction := planet.direction.Times(1 / planet.direction.Length())
 		radius := planet.radius
@@ -84,8 +82,8 @@ func skyNode() *scene.Node {
 	return node
 }
 
-// stars scatters small diamonds over a sphere of skyRadius.
-func stars() *scene.Mesh {
+// stars scatters small diamonds over a sphere of SkyRadius.
+func Stars() *scene.Mesh {
 	random := rand.New(rand.NewPCG(starSeed, starSeed))
 	mesh := &scene.Mesh{Name: "stars", Material: unlit()}
 	for range starCount {
@@ -93,7 +91,7 @@ func stars() *scene.Mesh {
 		height := random.Float64()*2 - 1
 		around := random.Float64() * 2 * math.Pi
 		across := math.Sqrt(1 - height*height)
-		centre := [3]float32{float32(across * math.Cos(around) * skyRadius), float32(height * skyRadius), float32(across * math.Sin(around) * skyRadius)}
+		centre := [3]float32{float32(across * math.Cos(around) * SkyRadius), float32(height * SkyRadius), float32(across * math.Sin(around) * SkyRadius)}
 		appendDiamond(mesh, centre, starSize, starColour)
 	}
 	return mesh
@@ -136,7 +134,7 @@ func dustCellMesh() *scene.Mesh {
 	mesh := &scene.Mesh{Name: "dust", Material: unlit()}
 	for range dustPerCell {
 		centre := [3]float32{random.Float32() * dustCell, random.Float32() * dustCell, random.Float32() * dustCell}
-		appendBox(mesh, centre, dustSize, dustSize, dustSize, dustColour)
+		AppendBox(mesh, centre, dustSize, dustSize, dustSize, dustColour)
 	}
 	return mesh
 }

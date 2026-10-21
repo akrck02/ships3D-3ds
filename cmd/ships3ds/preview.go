@@ -3,6 +3,7 @@
 package main
 
 import (
+	"github.com/jonbul/ships3D-3ds/arena"
 	"math"
 
 	"github.com/akrck02/go-renderer/ctr"
@@ -46,7 +47,7 @@ func newPreviewScene(screen *ctr.Screen) (*previewScene, error) {
 		return nil, err
 	}
 	stage := scene.New()
-	lightSpace(&stage.Environment)
+	arena.LightSpace(&stage.Environment)
 	// The hangar's far dark, under the arrows and the name painted over it.
 	stage.Environment.SkyHorizon, stage.Environment.FogColor = hangarBack, hangarBack
 	built := newHangar()
@@ -63,7 +64,7 @@ func (preview *previewScene) paint(surface ctr.Surface, mesh *scene.Mesh, scale,
 	if mesh != nil {
 		turn := flight.FromEulerXYZ(0, now*previewTurnsPerSecond*2*math.Pi, 0)
 		preview.ship.Mesh = mesh
-		preview.ship.Transform = transformOf(previewPosition, turn, scale)
+		preview.ship.Transform = arena.TransformOf(previewPosition, turn, scale)
 	}
 	preview.renderer.PaintOn(surface, preview.scene, previewCamera)
 }

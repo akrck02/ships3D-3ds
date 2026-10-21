@@ -1,6 +1,4 @@
-//go:build nintendo3ds
-
-package main
+package arena
 
 import (
 	"math/rand/v2"
@@ -43,7 +41,7 @@ type crash struct {
 func newCrash(space *scene.Scene) *crash {
 	effects := &crash{glow: &scene.Node{Name: "edge glow", Hidden: true, Moving: true}, random: rand.New(rand.NewPCG(sparkSeed, sparkSeed))}
 	space.Nodes = append(space.Nodes, effects.glow)
-	spark := box("spark", sparkSize, sparkSize, sparkSize, sparkColour)
+	spark := Box("spark", sparkSize, sparkSize, sparkSize, sparkColour)
 	spark.Material.Name = "spark"
 	for range sparkCount {
 		node := &scene.Node{Name: "spark", Mesh: spark, Hidden: true, Moving: true}
